@@ -19,7 +19,7 @@ class ComplexNewsSerializer(serializers.ModelSerializer):
 class ComplexBenefitsSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.ComplexBenefits
-        fields = ['id', 'complex', 'parking',
+        fields = ['id', 'parking',
                   'school', 'playground', 'hospital' ]
 
 
@@ -48,4 +48,6 @@ class ComplexSerializer(serializers.ModelSerializer):
                   'electricity', 'heating', 'water_cupply', 'sewerage',
                   'formalization', 'payment_form', 'purpose', 'payments_part']
         read_only_fields = ['owner', 'created_date', ]
+
+    # def create(self, validated_data):
 

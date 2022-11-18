@@ -93,7 +93,8 @@ class ComplexNews(models.Model):
 
 
 class ComplexBenefits(models.Model):
-    complex = models.OneToOneField(Complex, on_delete=models.CASCADE)
+    complex = models.OneToOneField(Complex, on_delete=models.CASCADE,
+                                   related_name="complex_benefits")
     parking = models.BooleanField(null=True, blank=True)
     school = models.BooleanField(null=True, blank=True)
     playground = models.BooleanField(null=True, blank=True)
