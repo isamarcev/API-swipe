@@ -13,14 +13,41 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import debug_toolbar
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework_simplejwt.views import TokenVerifyView, TokenRefreshView, \
+    TokenObtainPairView
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 from APISwipe import settings
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+
+    path('api/v1/token/', TokenObtainPairView.as_view(),
+         name='token_obtain_pair'),
+    path('api/v1/token/refresh/', TokenRefreshView.as_view(),
+         name='token_refresh'),
+    path('api/v1/token/verify/', TokenVerifyView.as_view(),
+         name='token_refresh'),
+
+    path('api-auth/', include('rest_framework.urls')),
+    path('estate/', include('content.urls')),
+    path('users/', include('content.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+
+if settings.DEBUG:
+    urlpatterns += [path('admin/', admin.site.urls)]
+    if 'debug_toolbar' in settings.INSTALLED_APPS:
+        urlpatterns += [path("__debug__/", include(debug_toolbar.urls))]

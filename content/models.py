@@ -1,10 +1,14 @@
 from django.db import models
+from phonenumber_field.modelfields import PhoneNumberField
+
 from APISwipe.settings import AUTH_USER_MODEL
 
 
 class Complex(models.Model):
     owner = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
-    contact = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.SET_NULL)
+    contact = models.ForeignKey(AUTH_USER_MODEL,
+                                on_delete=models.CASCADE,
+                                related_name='complex_contact')
     name = models.CharField(max_length=50)
     created_date = models.DateField(auto_now_add=True)
     description = models.CharField(max_length=500, null=True, blank=True)
@@ -14,7 +18,7 @@ class Complex(models.Model):
     map_long = models.DecimalField(decimal_places=10, max_digits=10,
                                    null=True, blank=True)
     status = models.CharField(max_length=20, choices=[('ready', 'Сдан'),
-                                                      'building', 'Строится'])
+                                                      ('building', 'Строится')])
     type = models.CharField(max_length=20, choices=[('panel', 'Панельный'),
                                                     ('brick', 'Кирпичный')])
     klass = models.CharField(max_length=15, choices=[('elit', 'Елитный'),
@@ -26,40 +30,59 @@ class Complex(models.Model):
                                            ('brick', 'Жженый кирпич октябрь')])
     territory = models.CharField(max_length=50,
                                  choices=[('closed', 'Закрытая охраняемая'),
-                                          'open', 'Открытая с доступом'])
-    distance_to_sea = models.PositiveIntegerField()
+                                          ('open', 'Открытая с доступом')])
+    distance_to_sea = models.PositiveIntegerField(null=True, blank=True)
     invoice = models.CharField(max_length=30,
                                choices=[('invoice', 'Платежи'),
-                                        ('transaction', 'Актиный платеж')])
-    cell_height = models.DecimalField(max_digits=2, decimal_places=2)
+                                        ('transaction', 'Актиный платеж')],
+                               default='invoice')
+    cell_height = models.DecimalField(max_digits=3, decimal_places=1,
+                                      default=2.5)
     gas = models.BooleanField(null=True, blank=True)
     electricity = models.CharField(max_length=10,
                                    choices=[('connect', 'Подключено'),
-                                            'disconnect', 'Отключено'])
+                                            ('disconnect', 'Отключено')],
+                                   default='connect')
     heating = models.CharField(max_length=10,
                                choices=[('central', 'Центральное'),
-                                        'auto', 'Автономное'])
+                                        ('auto', 'Автономное')],
+                               default='central')
     water_cupply = models.CharField(max_length=10,
                                     choices=[('central', 'Центральное'),
-                                             'auto', 'Автономное'])
+                                             ('auto', 'Автономное')],
+                                    default='central')
     sewerage = models.CharField(max_length=10,
                                 choices=[('central', 'Центральное'),
-                                         'auto', 'Автономное'])
+                                         ('auto', 'Автономное')],
+                                default='central')
     formalization = models.CharField(max_length=20,
                                      choices=[('justice', 'Юстиция'),
-                                              'proxy', 'Доверенность'])
-    payments = [('onlycash', 'Только наличные'),
+                                              ('proxy', 'Доверенность')],
+                                     default='justice')
+    PAYMENTS = (('onlycash', 'Только наличные'),
                 ('capital', 'Мат. капитал'),
                 ('mortgage', 'Ипотека'),
-                ('no matter', 'Неважно')]
-    payment_form = models.CharField(max_length=20, choices=payments)
+                ('no matter', 'Неважно'))
+    payment_form = models.CharField(max_length=20, choices=PAYMENTS,
+                                    default='onlycash')
     purpose = models.CharField(max_length=30,
                                choices=[('flat', 'Квартира'),
                                         ('commercial', 'Для коммерции'),
-                                        ('living', 'Жилое помещение')])
+                                        ('living', 'Жилое помещение')],
+                               default='flat')
     payments_part = models.CharField(max_length=20,
                                      choices=[('all', 'Полная'),
-                                              ('part', 'Неполная')])
+                                              ('part', 'Неполная')],
+                                     default='all')
+
+
+
+class ComplexSalesDepartment(models.Model):
+    complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    phone = PhoneNumberField
+    email = models.EmailField()
 
 
 class ComplexNews(models.Model):
@@ -70,7 +93,7 @@ class ComplexNews(models.Model):
 
 
 class ComplexBenefits(models.Model):
-    complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
+    complex = models.OneToOneField(Complex, on_delete=models.CASCADE)
     parking = models.BooleanField(null=True, blank=True)
     school = models.BooleanField(null=True, blank=True)
     playground = models.BooleanField(null=True, blank=True)
@@ -173,8 +196,7 @@ class Apartment(models.Model):
 class ApartmentImage(models.Model):
     apartment = models.ForeignKey(Apartment, on_delete=models.CASCADE)
     image = models.ImageField(
-        upload_to=f'complexes/{apartment.complex.name}/apartment-'
-                  f'{apartment.number}/images/', null=True, blank=True)
+        upload_to=f'apartments/images/', null=True, blank=True)
 
 
 class Advertisement(models.Model):

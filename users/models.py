@@ -1,5 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from phonenumber_field.modelfields import PhoneNumberField
+
+from content.models import Complex
+
 
 # Create your models here.
 
@@ -18,14 +22,20 @@ class CustomUser(AbstractUser):
                      ('agent', 'Агенту'), ('turn off', 'Отключить')]
     notification_type = models.CharField(max_length=30, choices=notifications,
                                          default=notifications[0][0])
-    phone = models.CharField(max_length=20)
+    phone = PhoneNumberField
 
 
 class Contact(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    contacts = [('my', 'Мои контакты'), ('agent', 'Контакты агента')]
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
+                             null=True,
+                             blank=True,
+                             related_name='agent_contacts')
+    complex = models.OneToOneField(Complex, on_delete=models.CASCADE,
+                                null=True, blank=True,
+                                related_name='complex_contact')
+    contacts = [('Отдел продаж', 'Отдел продаж'), ('Агент', 'Агент')]
     contact_type = models.CharField(max_length=20, choices=contacts)
-    phone = models.CharField(max_length=20)
+    phone = PhoneNumberField()
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     email = models.EmailField()
@@ -34,7 +44,7 @@ class Contact(models.Model):
 class Notary(models.Model):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
-    phone = models.CharField(max_length=20)
+    phone = PhoneNumberField
     email = models.EmailField()
 
 
@@ -51,7 +61,7 @@ class Filter(models.Model):
                   ('cottage', 'Коттеджы')]
     apartment_type = models.CharField(max_length=30, choices=apartments)
     status = models.CharField(max_length=20, choices=[('ready', 'Сдан'),
-                                                      'building', 'Строится'])
+                                                      ('building', 'Строится')])
     district = models.CharField(max_length=30, null=True, blank=True)
     microdistrict = models.CharField(max_length=30, null=True, blank=True)
     rooms = models.PositiveIntegerField()
@@ -69,6 +79,7 @@ class Filter(models.Model):
                 ('no matter', 'Неважно')]
     payment_options = models.CharField(max_length=30,
                                        choices=payments)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
 class Message(models.Model):
