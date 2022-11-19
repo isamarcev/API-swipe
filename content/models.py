@@ -76,7 +76,6 @@ class Complex(models.Model):
                                      default='all')
 
 
-
 class ComplexSalesDepartment(models.Model):
     complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
     first_name = models.CharField(max_length=50)
