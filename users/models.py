@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
+from django.utils.translation import gettext_lazy as _
 
 from content.models import Complex
 
@@ -9,12 +10,10 @@ from content.models import Complex
 
 
 class CustomUser(AbstractUser):
-    is_blacklisted = models.BooleanField(null=True,
-                                         blank=True)
-    is_developer = models.BooleanField(null=True,
-                                       blank=True)
-    forward_to_agent = models.BooleanField(null=True,
-                                           blank=True)
+    is_blacklisted = models.BooleanField(_('В черном списке'), default=False)
+    is_developer = models.BooleanField(_('Застройщик'), default=False)
+    forward_to_agent = models.BooleanField(_('Переключать на агента'),
+                                           default=False)
     avatar = models.ImageField(upload_to='users/avatars/',
                                null=True,
                                blank=True)

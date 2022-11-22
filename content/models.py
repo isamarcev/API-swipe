@@ -1,3 +1,5 @@
+import os.path
+
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -5,18 +7,20 @@ from APISwipe.settings import AUTH_USER_MODEL
 
 
 class Complex(models.Model):
-    owner = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
-    contact = models.ForeignKey(AUTH_USER_MODEL,
-                                on_delete=models.CASCADE,
-                                related_name='complex_contact')
+    owner = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE,
+                              related_name='complexes')
     name = models.CharField(max_length=50)
     created_date = models.DateField(auto_now_add=True)
     description = models.CharField(max_length=500, null=True, blank=True)
     address = models.CharField(max_length=100)
-    map_lat = models.DecimalField(decimal_places=10, max_digits=10,
+    map_lat = models.DecimalField(decimal_places=8, max_digits=10,
                                   null=True, blank=True)
-    map_long = models.DecimalField(decimal_places=10, max_digits=10,
+    map_long = models.DecimalField(decimal_places=8, max_digits=10,
                                    null=True, blank=True)
+    min_price = models.PositiveIntegerField()
+    price_per_m2 = models.PositiveIntegerField()
+    area_from = models.PositiveIntegerField()
+    area_to = models.PositiveIntegerField()
     status = models.CharField(max_length=20, choices=[('ready', 'Сдан'),
                                                       ('building', 'Строится')])
     type = models.CharField(max_length=20, choices=[('panel', 'Панельный'),
@@ -36,8 +40,8 @@ class Complex(models.Model):
                                choices=[('invoice', 'Платежи'),
                                         ('transaction', 'Актиный платеж')],
                                default='invoice')
-    cell_height = models.DecimalField(max_digits=3, decimal_places=1,
-                                      default=2.5)
+    cell_height = models.DecimalField(max_digits=4, decimal_places=2,
+                                      default=2.50)
     gas = models.BooleanField(null=True, blank=True)
     electricity = models.CharField(max_length=10,
                                    choices=[('connect', 'Подключено'),
@@ -85,7 +89,8 @@ class ComplexSalesDepartment(models.Model):
 
 
 class ComplexNews(models.Model):
-    complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
+    complex = models.ForeignKey(Complex, on_delete=models.CASCADE,
+                                related_name='complex_news')
     title = models.CharField(max_length=10)
     description = models.CharField(max_length=300)
     created = models.DateField(auto_now_add=True)
@@ -101,14 +106,22 @@ class ComplexBenefits(models.Model):
 
 
 class ComplexImage(models.Model):
-    complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to=f'complexes/{complex.name}/image/')
+    complex = models.ForeignKey(Complex, on_delete=models.CASCADE,
+                                related_name='complex_images')
+    image = models.ImageField(upload_to=f'complexes/images/')
 
 
 class ComplexDocument(models.Model):
-    complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
+    complex = models.ForeignKey(Complex, on_delete=models.CASCADE,
+                                related_name='complex_documents')
     title = models.CharField(max_length=20)
-    file = models.FileField(upload_to=f'complexes/{complex.name}/document/')
+    file = models.FileField(upload_to=f'complexes/documents/')
+    file_format = models.CharField(max_length=5, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        self.file_format = os.path.splitext(self.file.name)[1]
+        print(self.file_format)
+        return super().save(self)
 
 
 class Corpus(models.Model):
@@ -119,7 +132,7 @@ class Corpus(models.Model):
 class Section(models.Model):
     corpus = models.ForeignKey(Corpus, on_delete=models.CASCADE)
     title = models.CharField(max_length=20)
-    floor_count = models.PositiveIntegerField()
+    floor_count = models.PositiveIntegerField(default=10)
 
 
 class Floor(models.Model):
@@ -133,8 +146,10 @@ class Riser(models.Model):
 
 
 class Apartment(models.Model):
-    owner = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
+    owner = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE,
+                              related_name='apartments')
     complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
+    is_moderated = models.BooleanField(default=False)
     moderation_status = models.CharField(max_length=20,
                                          choices=[
                                              ('price', 'Некорректная цена'),
@@ -145,12 +160,13 @@ class Apartment(models.Model):
     moderation_decide = models.CharField(max_length=20,
                                          choices=[('confirm', 'Отказано'),
                                                   ('reject', 'Отклонено')])
-    is_booked = models.BooleanField(null=True, blank=True)
-    number = models.PositiveIntegerField()
-    corpus = models.PositiveIntegerField()
-    section = models.PositiveIntegerField()
-    floor = models.PositiveIntegerField()
-    rises = models.PositiveIntegerField()
+    is_viewed = models.IntegerField(default=0)
+    is_booked = models.BooleanField(default=False)
+    number = models.PositiveIntegerField(null=True, blank=True)
+    corpus = models.PositiveIntegerField(null=True, blank=True)
+    section = models.PositiveIntegerField(null=True, blank=True)
+    floor = models.PositiveIntegerField(null=True, blank=True)
+    rises = models.PositiveIntegerField(null=True, blank=True)
     description = models.CharField(max_length=500, null=True, blank=True)
     address = models.CharField(max_length=100, null=True, blank=True)
     foundation = models.CharField(max_length=200,
@@ -168,33 +184,48 @@ class Apartment(models.Model):
                                  choices=[('repairNeeded', 'Требуется ремонт'),
                                           ('living', 'Жилое'),
                                           ('empty', 'Голые стены')])
-    area = models.DecimalField(max_digits=2, decimal_places=2)
-    kitchenArea = models.DecimalField(max_digits=2, decimal_places=2)
+    area = models.DecimalField(max_digits=4, decimal_places=2)
+    kitchenArea = models.DecimalField(max_digits=4, decimal_places=2)
     has_balcony = models.BooleanField(null=True, blank=True)
-    heating = models.CharField(max_length=20, choices=[('gas', 'Газовое'),
-                                                       ('electro', 'Електро')])
-    payments = [('onlycash', 'Только наличные'),
+    HEATING = (
+        ("Газовое", "Газовое"),
+        ("Електро", "Електро")
+               )
+    heating = models.CharField(max_length=20, choices=HEATING)
+    PAYMENTS = (('onlycash', 'Только наличные'),
                 ('capital', 'Мат. капитал'),
                 ('mortgage', 'Ипотека'),
-                ('no matter', 'Неважно')]
+                ('no matter', 'Неважно'))
     payment_options = models.CharField(max_length=30,
-                                       choices=payments)
+                                       choices=PAYMENTS)
     comission = models.PositiveIntegerField()
+    COMISSION_TYPE = (
+        ('Звонок + сообщение', 'Звонок + сообщение'),
+        ('Только звонки', 'Только звонки'),
+        ('Сообщение', 'Сообщение'),
+    )
     communication_type = models.CharField(max_length=100,
-                                          choices=[('callmessage',
-                                                    'Звонок + сообщение'),
-                                                   ('call',
-                                                    'Только звонки'),
-                                                   ('message',
-                                                    'Сообщение'),
-                                                   ])
+                                          choices=COMISSION_TYPE)
     price = models.PositiveIntegerField()
     schema = models.ImageField(
-        upload_to=f'complexes/{complex.name}/apartment-{number}/schema/')
+        upload_to=f'complexes/{complex.name}/apartment-{number}/schema/',
+        null=True, blank=True)
+    price_per_square_meter = models.DecimalField(max_digits=10,
+                                                 decimal_places=1, default=0.0)
+    
+    def save(
+        self, force_insert=False, force_update=False, using=None, update_fields=None
+    ):
+        self.price_per_square_meter = round(self.price / self.area, 1)
+        return super(Apartment, self).save()
+
+    class Meta:
+        unique_together = ["complex", "section", "floor", "rises", "number"]
 
 
 class ApartmentImage(models.Model):
-    apartment = models.ForeignKey(Apartment, on_delete=models.CASCADE)
+    apartment = models.ForeignKey(Apartment, on_delete=models.CASCADE,
+                                  related_name="apartment_images")
     image = models.ImageField(
         upload_to=f'apartments/images/', null=True, blank=True)
 
