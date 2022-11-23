@@ -79,6 +79,9 @@ class Complex(models.Model):
                                               ('part', 'Неполная')],
                                      default='all')
 
+    def __str__(self):
+        return f'{self.name}'
+
 
 class ComplexSalesDepartment(models.Model):
     complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
@@ -125,7 +128,8 @@ class ComplexDocument(models.Model):
 
 
 class Corpus(models.Model):
-    complex = models.ForeignKey(Complex, on_delete=models.CASCADE)
+    complex = models.ForeignKey(Complex, on_delete=models.CASCADE,
+                                related_name='complex_corpus')
     title = models.CharField(max_length=20)
 
 
@@ -169,33 +173,44 @@ class Apartment(models.Model):
     rises = models.PositiveIntegerField(null=True, blank=True)
     description = models.CharField(max_length=500, null=True, blank=True)
     address = models.CharField(max_length=100, null=True, blank=True)
+    FOUNDATION = (
+        ('Фз 2014', 'Фз 2014'),
+        ('Случайная', 'Случайная')
+    )
     foundation = models.CharField(max_length=200,
-                                  choices=[('Фз 2014', 'Фз 2014'),
-                                           ('random', 'Случайная')])
+                                  choices=FOUNDATION)
+    PURPOSE = (
+        ('Апартаменты', 'Апартаменты'),
+        ('Коттедж', 'Коттедж'),
+    )
     purpose = models.CharField(max_length=20,
-                               choices=[('apartment', 'Апартаменты'),
-                                        ('cottage', 'Коттедж'),
-                                        ])
+                               choices=PURPOSE)
     rooms = models.PositiveIntegerField()
+    PLAN = (
+        ('Студия, санузел', 'Студия, санузел'),
+        ('Обынчая', 'Обычная')
+    )
     plan = models.CharField(max_length=30,
-                            choices=[('studio', 'Студия, санузел'),
-                                     ('simple', 'Обычная')])
+                            choices=PLAN)
+    CONDITION = (
+        ('Требуется ремонт', 'Требуется ремонт'),
+        ('Жилое', 'Жилое'),
+        ('Голые стена', 'Голые стены')
+    )
     condition = models.CharField(max_length=30,
-                                 choices=[('repairNeeded', 'Требуется ремонт'),
-                                          ('living', 'Жилое'),
-                                          ('empty', 'Голые стены')])
-    area = models.DecimalField(max_digits=4, decimal_places=2)
-    kitchenArea = models.DecimalField(max_digits=4, decimal_places=2)
+                                 choices=CONDITION)
+    area = models.DecimalField(max_digits=8, decimal_places=2)
+    kitchenArea = models.DecimalField(max_digits=5, decimal_places=2)
     has_balcony = models.BooleanField(null=True, blank=True)
     HEATING = (
         ("Газовое", "Газовое"),
         ("Електро", "Електро")
                )
     heating = models.CharField(max_length=20, choices=HEATING)
-    PAYMENTS = (('onlycash', 'Только наличные'),
-                ('capital', 'Мат. капитал'),
-                ('mortgage', 'Ипотека'),
-                ('no matter', 'Неважно'))
+    PAYMENTS = (('Только наличные', 'Только наличные'),
+                ('Мат. капитал', 'Мат. капитал'),
+                ('Ипотека', 'Ипотека'),
+                ('Неважно', 'Неважно'))
     payment_options = models.CharField(max_length=30,
                                        choices=PAYMENTS)
     comission = models.PositiveIntegerField()
@@ -212,7 +227,9 @@ class Apartment(models.Model):
         null=True, blank=True)
     price_per_square_meter = models.DecimalField(max_digits=10,
                                                  decimal_places=1, default=0.0)
-    
+    created_date = models.DateTimeField(auto_now_add=True)
+
+
     def save(
         self, force_insert=False, force_update=False, using=None, update_fields=None
     ):
@@ -221,6 +238,7 @@ class Apartment(models.Model):
 
     class Meta:
         unique_together = ["complex", "section", "floor", "rises", "number"]
+        ordering = ["-created_date"]
 
 
 class ApartmentImage(models.Model):
@@ -231,27 +249,31 @@ class ApartmentImage(models.Model):
 
 
 class Advertisement(models.Model):
-    apartment = models.OneToOneField(Apartment, on_delete=models.CASCADE)
-    is_big = models.BooleanField(null=True, blank=True)
-    is_up = models.BooleanField(null=True, blank=True)
-    is_active = models.BooleanField(null=True, blank=True)
-    is_turbo = models.BooleanField(null=True, blank=True)
-    add_text = models.BooleanField(null=True, blank=True)
-    add_color = models.BooleanField(null=True, blank=True)
+    apartment = models.OneToOneField(Apartment, on_delete=models.CASCADE,
+                                     db_index=True,
+                                     related_name='apartment_ad')
+    is_big = models.BooleanField(default=False)
+    is_up = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
+    is_turbo = models.BooleanField(default=False)
+    add_text = models.BooleanField(default=False)
+    add_color = models.BooleanField(default=False)
+    TEXT = (
+        ('Подарок при покупке', 'Подарок при покупке'),
+        ('Возможет торг', 'Возможен торг'),
+        ('Квартира у моря', 'Квартира у моря'),
+        ('В спальном районе', 'В спальном районе'),
+        ('Вам повезло с ценой!', 'Вам повезло с ценой!'),
+        ('Для большой семьи', 'Для большой семьи'),
+        ('Семейное гнездышко', 'Семейное гнездышко'),
+        ('Отедльная парковка', 'Отдельная парковка')
+    )
     text = models.CharField(max_length=20,
-                            choices=[
-                                ('present', 'Подарок при покупке'),
-                                ('bargain', 'Возможен торг'),
-                                ('sea', 'Квартира у моря'),
-                                ('sleep', 'В спальном районе'),
-                                ('price', 'Вам повезло с ценой!'),
-                                ('big_family', 'Для большой семьи'),
-                                ('family_nest', 'Семейное гнездышко'),
-                                ('parking', 'Отдельная парковка'),
-                            ])
+                            choices=TEXT, null=True, blank=True)
     color = models.CharField(max_length=20,
                              choices=[('#d13fcf', 'Розовый'),
-                                      ('#93cf9b', 'Зеленый')])
+                                      ('#93cf9b', 'Зеленый')],
+                             null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
 

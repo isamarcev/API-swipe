@@ -1,3 +1,5 @@
+import datetime
+
 from rest_framework import serializers
 
 from content import models
@@ -37,12 +39,22 @@ class ComplexImageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class CorpusListingField(serializers.RelatedField):
+    def to_representation(self, value):
+        flat_for_corpus = models.Apartment.objects.filter(corpus=value.title).\
+            count()
+        corpus_info = value.title, flat_for_corpus
+        return corpus_info
+
+
 class ComplexSerializer(serializers.ModelSerializer):
     complex_contact = ComplexContactSerializer()
     complex_benefits = ComplexBenefitsSerializer(many=False, required=False)
     complex_news = ComplexNewsSerializer(many=True, read_only=True)
     complex_images = ComplexImageSerializer(many=True, read_only=True)
     complex_documents = ComplexDocumentSerializer(many=True, read_only=True)
+    complex_corpus = CorpusListingField(many=True,
+                                        read_only=True)
 
     class Meta:
         model = models.Complex
@@ -53,8 +65,10 @@ class ComplexSerializer(serializers.ModelSerializer):
                   'distance_to_sea', 'invoice', 'cell_height', 'gas',
                   'electricity', 'heating', 'water_cupply', 'sewerage',
                   'formalization', 'payment_form', 'purpose', 'payments_part',
-                  'complex_news', 'complex_images', 'complex_documents']
-        read_only_fields = ['id', 'owner', 'created_date',]
+                  'complex_news', 'complex_images', 'complex_documents',
+                  'complex_corpus']
+        read_only_fields = ['id', 'owner', 'created_date', 'complex_corpus']
+
 
     def create(self, validated_data):
         contact_data = validated_data.pop('complex_contact')
@@ -74,6 +88,15 @@ class ComplexSerializer(serializers.ModelSerializer):
         return super(ComplexSerializer, self).update(instance, validated_data)
 
 
+class ComplexRestrictedSerializer(ComplexSerializer):
+
+    class Meta(ComplexSerializer.Meta):
+        fields = ("id", "complex_images", "address", "area_from", "min_price",
+                  "name")
+        read_only_fields = ("id", "complex_images", "address", "area_from",
+                            "min_price", "name")
+
+
 class ComplexCreateSerializer(ComplexSerializer):
 
     class Meta(ComplexSerializer.Meta):
@@ -84,7 +107,7 @@ class ApartmentImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.ApartmentImage
-        fields = '__all__'
+        fields = ("image", )
 
 
 class ComplexForApartmentSerializer(serializers.ModelSerializer):
@@ -95,6 +118,8 @@ class ComplexForApartmentSerializer(serializers.ModelSerializer):
 
 class ApartmentSerializer(serializers.ModelSerializer):
     apartment_images = ApartmentImageSerializer(many=True, required=False)
+    complex = serializers.PrimaryKeyRelatedField(
+        queryset=models.Complex.objects.all())
 
     class Meta:
         model = models.Apartment
@@ -103,15 +128,21 @@ class ApartmentSerializer(serializers.ModelSerializer):
                   'rooms', 'plan', 'condition', 'area', 'kitchenArea',
                   "has_balcony","heating", "payment_options", "comission",
                   "communication_type", "description", "price", "schema",
-                  "apartment_images", "is_viewed", "price_per_square_meter"]
-        read_only_fields = ["price_per_square_meter", "is_viewed", "owner"]
+                  "apartment_images", "is_viewed", "price_per_square_meter",
+                  "created_date"]
+        read_only_fields = ["price_per_square_meter", "is_viewed", "owner",
+                            "created_date"]
 
     def create(self, validated_data):
-        apartment_images = validated_data.pop('apartment_images')
         apartment_obj = models.Apartment.objects.create(**validated_data)
-        if apartment_images:
+        models.Advertisement.objects.create(apartment=apartment_obj,
+                                            created_by=apartment_obj.owner)
+        try:
+            apartment_images = validated_data.pop('apartment_images')
             models.ApartmentImage.objects.create(**apartment_images,
                                                  apartment=apartment_obj)
+        except KeyError:
+            pass
         return apartment_obj
 
     def update(self, instance, validated_data):
@@ -126,4 +157,41 @@ class AdvertisementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Advertisement
+        fields = ["id", "apartment", "is_big", "is_up", "is_turbo", "add_text",
+                  "add_color", "text", "color"]
+        read_only_fields = ["apartment"]
+        
+    def update(self, instance, validated_data):
+        if validated_data.get('is_up'):
+            flat = instance.apartment
+            flat.created_date = datetime.datetime.now()
+            flat.save()
+        return super(AdvertisementSerializer, self).update(instance,
+                                                           validated_data)
+
+
+class ApartmentRestrictedSerializer(ApartmentSerializer):
+    apartment_ad = AdvertisementSerializer()
+
+    class Meta(ApartmentSerializer.Meta):
+        fields = ("id", "address", "area", "price", "created_date",
+                  "apartment_ad", "floor", "apartment_images")
+
+class ComplaintSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Complaint
+        fields = '__all__'
+        read_only_fields = ("created", "is_reviewed", "user")
+
+    def create(self, validated_data):
+        complaint = models.Complaint.objects.create(
+            **validated_data, user=self.context.get("user"))
+        return complaint
+
+
+class ComplexAndApartmentSerializer(serializers.Serializer):
+    complex = ComplexRestrictedSerializer(many=True, allow_null=True)
+    apartment = ApartmentRestrictedSerializer(many=True)
+
 

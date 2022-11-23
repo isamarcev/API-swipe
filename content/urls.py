@@ -12,5 +12,12 @@ router.register(r'complex_document', views.ComplexDocumentsViewSet,
                 basename='complex_document')
 router.register(r'apartment', views.ApartmentViewSet,
                 basename='apartment')
+router.register(r'advertisement', views.AdvertisementViewSer,
+                basename='apartment_ad'),
+router.register(r'complaint', views.ComplaintViewSet, basename='complaint')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('feed/', views.AllComplexAndApartmentView.as_view({'get':'list'}))
+]
+
+urlpatterns += router.urls

@@ -5,10 +5,11 @@ from django.shortcuts import render
 
 from drf_spectacular.utils import extend_schema
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from content import models, serializers
 from content.permissions import IsComplexOwner, IsApartmentOwner
@@ -18,22 +19,23 @@ from content.services.service_serializer import create_related_object
 
 @extend_schema(tags=["complex"])
 class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     serializer_class = serializers.ComplexSerializer
-    queryset = models.Complex.objects.all()
-    parser_classes = [MultiPartParser]
+    queryset = models.Complex.objects.all().\
+        prefetch_related('complex_documents', 'complex_images',
+                         'complex_news', 'complex_corpus')
     http_method_names = ['get', "post", "put", "delete"]
 
-    psq_rules = {
-        'create': [
-            Rule([IsAdminUser], serializers.ComplexCreateSerializer),
-            Rule([IsDeveloperUser], serializers.ComplexCreateSerializer)
-        ],
-        ('update', 'partial_update', 'destroy'): [
-            Rule([IsAdminUser], serializers.ComplexCreateSerializer),
-            Rule([IsComplexOwner], serializers.ComplexCreateSerializer)
-        ]
-    }
+    # psq_rules = {
+    #     'create': [
+    #         Rule([IsAdminUser], serializers.ComplexCreateSerializer),
+    #         Rule([IsDeveloperUser], serializers.ComplexCreateSerializer)
+    #     ],
+    #     ('update', 'partial_update', 'destroy'): [
+    #         Rule([IsAdminUser], serializers.ComplexCreateSerializer),
+    #         Rule([IsComplexOwner], serializers.ComplexCreateSerializer)
+    #     ]
+    # }
 
     def list(self, request, *args, **kwargs):
         queryset = models.Complex.objects.filter(owner_id=request.user.id)
@@ -49,8 +51,6 @@ class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         complex_obj = self.get_object()
         serializer = self.get_serializer(complex_obj)
-        # complex_max_corpus = models.Apartment.objects.filter(complex=complex_obj). \
-        #     aggregate(complex_max_corpus=Max('corpus'))['complex_max_corpus']
         return Response(serializer.data)
 
 
@@ -64,6 +64,23 @@ class ComplexDocumentsViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         return create_related_object(self, request, *args, **kwargs)
+
+
+# @extend_schema(tags=["apartment_image"])
+# class ApartmentImageViewSet(viewsets.ModelViewSet):
+#     queryset = models.ApartmentImage.objects.all()
+#     serializer_class = serializers.ApartmentImageSerializer
+#     parser_classes = [MultiPartParser]
+#     http_method_names = ('put', 'post', 'delete')
+#     permission_classes = [IsApartmentOwner, IsAdminUser]
+#
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.serializer_class(data=request.data,
+#                                            context={'user': request.user})
+#         serializer.is_valid(raise_exception=True)
+#         apartment = models.Complex.objects.get(pk=request.data['apartment'])
+#         serializer.save(apartment=apartment)
+#         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["complex_image"])
@@ -94,17 +111,68 @@ class ApartmentViewSet(viewsets.ModelViewSet):
     queryset = models.Apartment.objects.all()
     serializer_class = serializers.ApartmentSerializer
     http_method_names = ('get', 'put', 'post', 'patch', 'delete')
-    parser_classes = [MultiPartParser, JSONParser]
+    # parser_classes = [JSONParser]
 
     def create(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(owner=self.request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, *args, **kwargs):
         apartment_obj = self.get_object()
         serializer = self.get_serializer(apartment_obj)
         return Response(serializer.data)
+
+
+@extend_schema(tags=["advertisement"])
+class AdvertisementViewSer(viewsets.ModelViewSet):
+    queryset = models.Advertisement.objects.all()
+    serializer_class = serializers.AdvertisementSerializer
+    http_method_names = ["get", "put", "delete"]
+    lookup_field = 'apartment'
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=self.request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=["complaint"])
+class ComplaintViewSet(viewsets.ModelViewSet):
+    queryset = models.Complaint.objects.all()
+    serializer_class = serializers.ComplaintSerializer
+    http_method_names = ["get", "post", "put", "delete"]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                           context={'user': request.user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request, *args, **kwargs):
+        complaint_obj = self.get_object()
+        complaint_obj.is_reviewed = True
+        complaint_obj.save()
+        serializer = self.get_serializer(complaint_obj)
+        return Response(serializer.data)
+
+
+@extend_schema(tags=["all_feed"])
+class AllComplexAndApartmentView(mixins.ListModelMixin,
+                                 viewsets.GenericViewSet):
+
+    def list(self, request, *args, **kwargs):
+        complex = models.Complex.objects.all()
+        apartment = models.Apartment.objects.all()
+        serializer = serializers.ComplexRestrictedSerializer(
+            complex, many=True)
+        serializer_flat = serializers.ApartmentRestrictedSerializer(apartment,
+                                                                    many=True)
+        return Response({'flats': serializer_flat.data,
+                         'complex': serializer.data})
+
 
 

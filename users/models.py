@@ -17,11 +17,11 @@ class CustomUser(AbstractUser):
     avatar = models.ImageField(upload_to='users/avatars/',
                                null=True,
                                blank=True)
-    notifications = [('me', 'Мне'), ('me and agent', 'Мне и агенту'),
-                     ('agent', 'Агенту'), ('turn off', 'Отключить')]
+    notifications = [('Мне', 'Мне'), ('Мне и агенту', 'Мне и агенту'),
+                     ('Агенту', 'Агенту'), ('Отключить', 'Отключить')]
     notification_type = models.CharField(max_length=30, choices=notifications,
                                          default=notifications[0][0])
-    phone = PhoneNumberField
+    phone = PhoneNumberField(unique=True)
 
 
 class Contact(models.Model):
@@ -48,10 +48,11 @@ class Notary(models.Model):
 
 
 class Subscription(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
+                                related_name='subscription')
     expired_at = models.DateTimeField()
-    auto_continue = models.BooleanField(null=True, blank=True, default=False)
-    is_active = models.BooleanField(null=True, blank=True, default=False)
+    auto_continue = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
 
 
 class Filter(models.Model):
