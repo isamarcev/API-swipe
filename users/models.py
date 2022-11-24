@@ -21,7 +21,13 @@ class CustomUser(AbstractUser):
                      ('Агенту', 'Агенту'), ('Отключить', 'Отключить')]
     notification_type = models.CharField(max_length=30, choices=notifications,
                                          default=notifications[0][0])
-    phone = PhoneNumberField(unique=True)
+    phone = PhoneNumberField(unique=True, null=False, blank=False)
+    email = models.EmailField(_("email address"), blank=True, unique=True)
+    username = models.CharField(
+        _("username"),max_length=150,)
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["phone"]
+
 
 
 class Contact(models.Model):

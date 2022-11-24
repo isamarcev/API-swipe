@@ -31,7 +31,6 @@ urlpatterns = [
     path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-
     path('api/v1/token/', TokenObtainPairView.as_view(),
          name='token_obtain_pair'),
     path('api/v1/token/refresh/', TokenRefreshView.as_view(),
@@ -40,8 +39,8 @@ urlpatterns = [
          name='token_refresh'),
 
     path('api-auth/', include('rest_framework.urls')),
-    path('estate/', include('content.urls')),
     path('users/', include('users.urls')),
+    path('estate/', include('content.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
