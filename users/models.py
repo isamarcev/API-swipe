@@ -1,9 +1,11 @@
+import datetime
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from django.utils.translation import gettext_lazy as _
 
-from content.models import Complex
+from content.models import Complex, Apartment
 
 
 # Create your models here.
@@ -25,38 +27,40 @@ class CustomUser(AbstractUser):
     email = models.EmailField(_("email address"), blank=True, unique=True)
     username = models.CharField(
         _("username"),max_length=150,)
+    favourite_apartment = models.ManyToManyField(Apartment, blank=True)
+    favourite_complex = models.ManyToManyField(Complex, blank=True)
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["phone"]
 
 
-
 class Contact(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
-                             null=True,
-                             blank=True,
-                             related_name='agent_contacts')
+                                null=True,
+                                blank=True,
+                                related_name='agent_contacts')
     complex = models.OneToOneField(Complex, on_delete=models.CASCADE,
-                                null=True, blank=True,
-                                related_name='complex_contact')
+                                   null=True, blank=True,
+                                   related_name='complex_contact')
     contacts = [('Отдел продаж', 'Отдел продаж'), ('Агент', 'Агент')]
     contact_type = models.CharField(max_length=20, choices=contacts)
-    phone = PhoneNumberField()
-    first_name = models.CharField(max_length=30)
-    last_name = models.CharField(max_length=30)
-    email = models.EmailField()
+    phone = PhoneNumberField(null=True, blank=True)
+    first_name = models.CharField(max_length=30, null=True, blank=True)
+    last_name = models.CharField(max_length=30, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
 
 
 class Notary(models.Model):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
-    phone = PhoneNumberField
+    phone = PhoneNumberField()
     email = models.EmailField()
 
 
 class Subscription(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
                                 related_name='subscription')
-    expired_at = models.DateTimeField()
+    expired_at = models.DateTimeField(null=True,
+                                      default=datetime.datetime.now())
     auto_continue = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
 

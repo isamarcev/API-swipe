@@ -1,11 +1,12 @@
 from drf_psq import Rule, PsqMixin
 
 from django.db.models import Max
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 
 from drf_spectacular.utils import extend_schema
 
 from rest_framework import viewsets, status, mixins
+from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -15,6 +16,7 @@ from content import models, serializers
 from content.permissions import IsComplexOwner, IsApartmentOwner
 from users.permissions import IsDeveloperUser
 from content.services.service_serializer import create_related_object
+from users.serializers import UserSerializer
 
 
 @extend_schema(tags=["complex"])
@@ -52,6 +54,17 @@ class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
         complex_obj = self.get_object()
         serializer = self.get_serializer(complex_obj)
         return Response(serializer.data)
+
+    @extend_schema(tags=["add_to_favourite"],
+                   request=serializers.serializers.Serializer)
+    @action(detail=True, name='add_complex_to_favourite', methods=["put"])
+    def add_complex_to_favourite(self, request, *args, **kwargs):
+        complex_obj = self.get_object()
+        if complex_obj in request.user.favourite_complex.all():
+            request.user.favourite_complex.remove(complex_obj)
+            return Response("Удалено")
+        request.user.favourite_complex.add(complex_obj)
+        return Response("Добавлено")
 
 
 @extend_schema(tags=["complex_document"])
@@ -110,7 +123,7 @@ class ComplexNewsViewSet(viewsets.ModelViewSet):
 class ApartmentViewSet(viewsets.ModelViewSet):
     queryset = models.Apartment.objects.all()
     serializer_class = serializers.ApartmentSerializer
-    http_method_names = ('get', 'put', 'post', 'patch', 'delete')
+    # http_method_names = ('get', 'put', 'post', 'patch', 'delete')
     # parser_classes = [JSONParser]
 
     def create(self, request, *args, **kwargs):
@@ -124,12 +137,92 @@ class ApartmentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(apartment_obj)
         return Response(serializer.data)
 
+    @extend_schema(tags=["add_to_favourite"],
+                   request=serializers.serializers.Serializer)
+    @action(detail=True, name='add_flat_to_favourite', methods=["put"])
+    def add_flat_to_favourite(self, request, *args, **kwargs):
+        apartment = self.get_object()
+        if apartment in request.user.favourite_apartment.all():
+            request.user.favourite_apartment.remove(apartment)
+            return Response("Удалено")
+        request.user.favourite_apartment.add(apartment)
+        return Response("Добавлено")
+
+
+@extend_schema(tags=["moderation"])
+class ApartmentModerationViewSet(viewsets.ModelViewSet):
+    queryset = models.Apartment.objects.filter(is_moderated=False)
+    serializer_class = serializers.ApartmentModerationList
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.queryset.filter(is_moderated=False)
+        serializer = serializers.ApartmentModerationList(
+            queryset, many=True
+        )
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        apartment_obj = self.get_object()
+            # get_object_or_404(
+            # models.Apartment.objects.filter(is_moderated=False),
+            # pk=pk
+        # )
+        print(apartment_obj)
+        serializer = serializers.ApartmentModerationObject(
+            apartment_obj
+        )
+        return Response(serializer.data)
+
+    @extend_schema(request=serializers.ApartmentModerationObject)
+    def update(self, request, *args, **kwargs):
+        # apartment_obj = get_object_or_404(
+        #     models.Apartment.objects.filter(is_moderated=False),
+        #     pk=pk
+        # )
+        apartment_obj = self.get_object()
+        serializer = serializers.ApartmentModerationObject(
+            apartment_obj, data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    # @action(detail=False, methods=["get"], name="moderation")
+    # def moderation(self, request, *args, **kwargs):
+    #     queryset = self.get_queryset().filter(is_moderated=False)
+    #     serializer = serializers.ApartmentModerationList(
+    #         queryset, many=True
+    #     )
+    #     return Response(serializer.data)
+
+    # @action(detail=True, methods=["get"], name="moderation_apartment")
+    # def moderation(self, request, *args, **kwargs):
+    #     apartment_obj = get_object_or_404(
+    #         models.Apartment.objects.filter(is_moderated=False),
+    #         pk=kwargs.get('pk')
+    #     )
+    #     if request.method == 'GET':
+    #         serializer = serializers.ApartmentModerationObject(
+    #             apartment_obj
+    #         )
+    #         return Response(serializer.data)
+
+    # @action(detail=True, methods=['patch'], name="moderation_apartment_put")
+    # def moderation_decide(self, request, *args, **kwargs):
+    #     apartment_obj = get_object_or_404(
+    #         models.Apartment.objects.filter(is_moderated=False),
+    #         pk=kwargs.get('pk')
+    #     )
+    #     serializer = serializers.ApartmentModerationObject(
+    #         apartment_obj
+    #     )
+    #     return Response(serializer.data)
+
 
 @extend_schema(tags=["advertisement"])
 class AdvertisementViewSer(viewsets.ModelViewSet):
     queryset = models.Advertisement.objects.all()
     serializer_class = serializers.AdvertisementSerializer
-    http_method_names = ["get", "put", "delete"]
+    # http_method_names = ["get", "put", "delete"]
     lookup_field = 'apartment'
 
     def create(self, request, *args, **kwargs):
@@ -162,17 +255,20 @@ class ComplaintViewSet(viewsets.ModelViewSet):
 
 @extend_schema(tags=["all_feed"])
 class AllComplexAndApartmentView(mixins.ListModelMixin,
+                                 mixins.UpdateModelMixin,
                                  viewsets.GenericViewSet):
 
     def list(self, request, *args, **kwargs):
-        complex = models.Complex.objects.all()
+        complex_obj = models.Complex.objects.all()
         apartment = models.Apartment.objects.all()
         serializer = serializers.ComplexRestrictedSerializer(
-            complex, many=True)
+            complex_obj, many=True)
         serializer_flat = serializers.ApartmentRestrictedSerializer(apartment,
                                                                     many=True)
         return Response({'flats': serializer_flat.data,
                          'complex': serializer.data})
+
+
 
 
 

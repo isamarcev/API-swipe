@@ -5,6 +5,7 @@ from rest_framework import serializers
 from content import models
 from users import models as userModels
 from content.services.service_serializer import update_related_object
+from users.models import CustomUser
 
 
 class ComplexContactSerializer(serializers.ModelSerializer):
@@ -58,7 +59,7 @@ class ComplexSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Complex
-        fields = ['id', 'owner', 'complex_contact', 'complex_benefits',
+        fields = ['id', "name", 'owner', 'complex_contact', 'complex_benefits',
                   'description', 'address', 'min_price', 'price_per_m2',
                   'area_from', 'area_to', 'map_lat', 'map_long', 'status',
                   'type', 'klass', 'technology', 'territory',
@@ -68,7 +69,6 @@ class ComplexSerializer(serializers.ModelSerializer):
                   'complex_news', 'complex_images', 'complex_documents',
                   'complex_corpus']
         read_only_fields = ['id', 'owner', 'created_date', 'complex_corpus']
-
 
     def create(self, validated_data):
         contact_data = validated_data.pop('complex_contact')
@@ -177,6 +177,7 @@ class ApartmentRestrictedSerializer(ApartmentSerializer):
         fields = ("id", "address", "area", "price", "created_date",
                   "apartment_ad", "floor", "apartment_images")
 
+
 class ComplaintSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -193,5 +194,31 @@ class ComplaintSerializer(serializers.ModelSerializer):
 class ComplexAndApartmentSerializer(serializers.Serializer):
     complex = ComplexRestrictedSerializer(many=True, allow_null=True)
     apartment = ApartmentRestrictedSerializer(many=True)
+
+
+class ApartmentModerationList(ApartmentRestrictedSerializer):
+
+    class Meta(ApartmentRestrictedSerializer.Meta):
+        fields = ("id", "address", "area", "price", "created_date",
+                  "floor", "apartment_images")
+
+
+class ApartmentModerationObject(serializers.ModelSerializer):
+    apartment_images = ApartmentImageSerializer(many=True, required=False)
+    # moderation_status = serializers.ChoiceField((
+    #     ('price', 'Некорректная цена'),
+    #     ('photo', 'Некорректное фото'),
+    #     ('description',
+    #      'Некорректное описание')
+    # ))
+    class Meta:
+        model = models.Apartment
+        fields = ["id", "moderation_status", "owner", "number", "floor",
+                  "moderation_decide", 'address', 'foundation', 'purpose',
+                  'rooms', 'plan', 'condition', 'area', 'kitchenArea',
+                  "has_balcony", "heating", "payment_options", "comission",
+                  "description", "price", "apartment_images", "created_date"]
+
+
 
 

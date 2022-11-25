@@ -2,15 +2,14 @@ from django.urls import path, include
 from . import views
 
 from rest_framework.routers import DefaultRouter
-from drf_spectacular.utils import extend_schema
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import LoginView, LogoutView
 
 
-
-
 router = DefaultRouter()
-router.register(r'user', views.UserUpdateView, basename='user_update')
+router.register(r'user', views.UserViewSet, basename='user_update')
+router.register(r'notary', views.NotaryViewSet, basename='notary_view_set')
+
 
 urlpatterns = [
     path("", include(router.urls))

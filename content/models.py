@@ -163,7 +163,8 @@ class Apartment(models.Model):
                                          ], null=True, blank=True)
     moderation_decide = models.CharField(max_length=20,
                                          choices=[('confirm', 'Отказано'),
-                                                  ('reject', 'Отклонено')])
+                                                  ('reject', 'Отклонено')],
+                                         null=True, blank=True)
     is_viewed = models.IntegerField(default=0)
     is_booked = models.BooleanField(default=False)
     number = models.PositiveIntegerField(null=True, blank=True)

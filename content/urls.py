@@ -15,6 +15,8 @@ router.register(r'apartment', views.ApartmentViewSet,
 router.register(r'advertisement', views.AdvertisementViewSer,
                 basename='apartment_ad'),
 router.register(r'complaint', views.ComplaintViewSet, basename='complaint')
+router.register(r'moderation', views.ApartmentModerationViewSet,
+                basename='moderation')
 
 urlpatterns = [
     path('feed/', views.AllComplexAndApartmentView.as_view({'get':'list'}))
