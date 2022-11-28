@@ -1,10 +1,15 @@
 import datetime
-
+from django.core.files.base import ContentFile
+from django.db.models import Max, Count
 from rest_framework import serializers
 
+import base64
+from drf_extra_fields.fields import Base64ImageField, HybridImageField
+
 from content import models
-from users import models as userModels
 from content.services.service_serializer import update_related_object
+
+from users import models as userModels
 from users.models import CustomUser
 
 
@@ -103,11 +108,28 @@ class ComplexCreateSerializer(ComplexSerializer):
         exclude = ['complex_news', 'complex_images', 'complex_documents']
 
 
+class ApartmentImageListSerializer(serializers.ListSerializer):
+    def create(self, validated_data):
+        self.context.get('apartment').apartment_images.all().delete()
+        count = 1
+        new_images = []
+        for elem in validated_data:
+            image = models.ApartmentImage(image=elem.get('image'),
+                                          order=count,
+                                          apartment=self.context.get('apartment'))
+            new_images.append(image)
+            count += 1
+        return models.ApartmentImage.objects.bulk_create(new_images)
+
+
 class ApartmentImageSerializer(serializers.ModelSerializer):
+    image = HybridImageField()
+    order = serializers.IntegerField(required=False)
 
     class Meta:
         model = models.ApartmentImage
-        fields = ("image", )
+        fields = ("image", "order")
+        list_serializer_class = ApartmentImageListSerializer
 
 
 class ComplexForApartmentSerializer(serializers.ModelSerializer):
@@ -124,33 +146,91 @@ class ApartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Apartment
         fields = ["id", "owner", "number", "corpus", "section", "floor",
-                  "rises",'address', 'complex', 'foundation', 'purpose',
+                  "rises", 'address', 'complex', 'foundation', 'purpose',
                   'rooms', 'plan', 'condition', 'area', 'kitchenArea',
-                  "has_balcony","heating", "payment_options", "comission",
+                  "has_balcony", "heating", "payment_options", "comission",
                   "communication_type", "description", "price", "schema",
-                  "apartment_images", "is_viewed", "price_per_square_meter",
+                  "apartment_images", "price_per_square_meter",
                   "created_date"]
         read_only_fields = ["price_per_square_meter", "is_viewed", "owner",
                             "created_date"]
 
     def create(self, validated_data):
-        apartment_obj = models.Apartment.objects.create(**validated_data)
+        apartment_images = validated_data.pop('apartment_images')
+
+        apartment_obj = models.Apartment.objects.create(**validated_data,
+                                                        owner=self.context.
+                                                        get('owner'))
         models.Advertisement.objects.create(apartment=apartment_obj,
                                             created_by=apartment_obj.owner)
         try:
-            apartment_images = validated_data.pop('apartment_images')
-            models.ApartmentImage.objects.create(**apartment_images,
-                                                 apartment=apartment_obj)
+            image_serializer = ApartmentImageSerializer(
+                data=apartment_images,
+                context={'apartment': apartment_obj}, many=True)
+            image_serializer.is_valid(raise_exception=True)
+            image_serializer.save()
         except KeyError:
             pass
         return apartment_obj
 
     def update(self, instance, validated_data):
-        apartment_images = validated_data.pop('apartment_images')
-        if apartment_images:
-            models.ApartmentImage.objects.update(apartment_images,
-                                                 apartment=instance)
+        try:
+            apartment_images = validated_data.pop('apartment_images')
+            image_serializer = ApartmentImageSerializer(
+                data=apartment_images,
+                context={'apartment': instance},
+                many=True)
+            image_serializer.is_valid(raise_exception=True)
+            image_serializer.save()
+        except KeyError:
+            pass
         return super(ApartmentSerializer, self).update(instance, validated_data)
+
+
+class UserShortSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "first_name", "last_name", "is_developer", "avatar")
+
+
+class ApartmentDetailSerializer(serializers.ModelSerializer):
+    owner = UserShortSerializer()
+    max_floor_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Apartment
+        fields = ("id", "number", "floor",
+                  "max_floor_count", "address", 'foundation', 'purpose',
+                  "owner", 'rooms', 'plan', 'condition', 'area', 'kitchenArea',
+                  "has_balcony", "heating", "payment_options", "comission",
+                  "communication_type", "description", "price",
+                  "apartment_images")
+
+    def get_max_floor_count(self, obj):
+        floor = models.Apartment.objects.filter(section=obj.section).\
+            values_list('floor')
+        max_count = 0
+        for element in floor:
+            if element[0] > max_count:
+                max_count = element[0]
+        return max_count
+
+
+class ApartmentOwnerSerializer(ApartmentDetailSerializer):
+    viewed_and_favourite = serializers.SerializerMethodField()
+
+    class Meta(ApartmentDetailSerializer.Meta):
+        fields = ApartmentDetailSerializer.Meta.fields +\
+                 ("viewed_and_favourite", )
+
+    def get_viewed_and_favourite(self, obj):
+        users = CustomUser.objects\
+            .filter(is_developer=False, is_staff=False)
+        favourite_counter = len([1 for element in users
+                                 if obj in element.favourite_apartment.all()])
+        return {'viewed': len(obj.is_viewed.all()),
+                "favourite": favourite_counter}
 
 
 class AdvertisementSerializer(serializers.ModelSerializer):
@@ -192,8 +272,8 @@ class ComplaintSerializer(serializers.ModelSerializer):
 
 
 class ComplexAndApartmentSerializer(serializers.Serializer):
-    complex = ComplexRestrictedSerializer(many=True, allow_null=True)
-    apartment = ApartmentRestrictedSerializer(many=True)
+    complex = ComplexRestrictedSerializer(many=True, read_only=True)
+    apartment = ApartmentRestrictedSerializer(many=True, read_only=True)
 
 
 class ApartmentModerationList(ApartmentRestrictedSerializer):
@@ -204,13 +284,10 @@ class ApartmentModerationList(ApartmentRestrictedSerializer):
 
 
 class ApartmentModerationObject(serializers.ModelSerializer):
-    apartment_images = ApartmentImageSerializer(many=True, required=False)
-    # moderation_status = serializers.ChoiceField((
-    #     ('price', 'Некорректная цена'),
-    #     ('photo', 'Некорректное фото'),
-    #     ('description',
-    #      'Некорректное описание')
-    # ))
+    apartment_images = ApartmentImageSerializer(many=True, required=False,
+                                                read_only=True)
+    owner = UserShortSerializer(read_only=True)
+
     class Meta:
         model = models.Apartment
         fields = ["id", "moderation_status", "owner", "number", "floor",
@@ -218,7 +295,25 @@ class ApartmentModerationObject(serializers.ModelSerializer):
                   'rooms', 'plan', 'condition', 'area', 'kitchenArea',
                   "has_balcony", "heating", "payment_options", "comission",
                   "description", "price", "apartment_images", "created_date"]
+        read_only_fields = ("owner", "number", "floor", 'address',
+                            'foundation', 'purpose','rooms', 'plan',
+                            'condition', 'area', 'kitchenArea', "has_balcony",
+                            "heating", "payment_options", "comission",
+                            "description", "price", "apartment_images",
+                            "created_date")
 
+    def update(self, instance, validated_data):
+        if validated_data.get("moderation_decide") == "Подтверждено":
+            instance.is_moderated = True
+        return super(ApartmentModerationObject, self).update(instance,
+                                                             validated_data)
 
+    def validate_moderation_decide(self, value):
+        moderation_status = self.initial_data.get("moderation_status")
+        if value == 'Отклонено' and not moderation_status:
+            raise serializers.ValidationError(
+                'При отклонении объявления нужно обязательно выбрать причину.'
+            )
+        return value
 
 

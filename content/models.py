@@ -161,11 +161,14 @@ class Apartment(models.Model):
                                              ('description',
                                               'Некорректное описание')
                                          ], null=True, blank=True)
+    MODERATION_STATUS = (
+        ('Подтверждено', 'Подтверждено'),
+        ('Отклонено', 'Отклонено')
+    )
     moderation_decide = models.CharField(max_length=20,
-                                         choices=[('confirm', 'Отказано'),
-                                                  ('reject', 'Отклонено')],
+                                         choices=MODERATION_STATUS,
                                          null=True, blank=True)
-    is_viewed = models.IntegerField(default=0)
+    is_viewed = models.ManyToManyField(AUTH_USER_MODEL, blank=True)
     is_booked = models.BooleanField(default=False)
     number = models.PositiveIntegerField(null=True, blank=True)
     corpus = models.PositiveIntegerField(null=True, blank=True)
@@ -230,10 +233,12 @@ class Apartment(models.Model):
                                                  decimal_places=1, default=0.0)
     created_date = models.DateTimeField(auto_now_add=True)
 
-
     def save(
-        self, force_insert=False, force_update=False, using=None, update_fields=None
-    ):
+            self,
+            force_insert=False,
+            force_update=False,
+            using=None,
+            update_fields=None):
         self.price_per_square_meter = round(self.price / self.area, 1)
         return super(Apartment, self).save()
 
@@ -247,6 +252,7 @@ class ApartmentImage(models.Model):
                                   related_name="apartment_images")
     image = models.ImageField(
         upload_to=f'apartments/images/', null=True, blank=True)
+    order = models.IntegerField()
 
 
 class Advertisement(models.Model):

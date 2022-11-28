@@ -1,7 +1,9 @@
+from dj_rest_auth.registration.views import VerifyEmailView
 from drf_psq import Rule, PsqMixin
 
 from django.db.models import Max
 from django.shortcuts import render, get_object_or_404
+from django.utils.translation import gettext_lazy as _
 
 from drf_spectacular.utils import extend_schema
 
@@ -52,6 +54,18 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'data': serializer.data,
                          'count': queryset.count()})
 
+    @extend_schema(request=serializers.serializers.Serializer)
+    @action(detail=True, methods=["put"], name="blacklist")
+    def add_to_blacklist(self, request, *args, **kwargs):
+        user = get_object_or_404(models.CustomUser, pk=kwargs.get("pk"))
+        if not user.is_blacklisted:
+            user.is_blacklisted = True
+            user.save()
+            return Response('Пользователь добавлен в  черный список')
+        user.is_blacklisted = False
+        user.save()
+        return Response('Пользователь уделен из черного списка')
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -63,12 +77,86 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-
 @extend_schema(tags=["notary"])
 class NotaryViewSet(viewsets.ModelViewSet):
     queryset = models.Notary.objects.all()
     serializer_class = serializers.NotarySerializer
 
 
+@extend_schema(tags=["messages"])
+class MessagesViewSet(viewsets.GenericViewSet):
+    http_method_names = ("get", "post", "delete")
+    queryset = models.Message.objects.all()
+    serializer_class = serializers.MessageListSerializer
+    lookup_field = "recipient_id"
+
+    def retrieve(self, request, *args, **kwargs):
+        recipient = get_object_or_404(models.CustomUser,
+                                      pk=kwargs.get("recipient_id"))
+        queryset_outbox = self.queryset.filter(sender=request.user,
+                                               recipient=recipient)
+        queryset_inbox = self.queryset.filter(recipient=request.user,
+                                              sender=recipient)
+        total_qs = queryset_inbox | queryset_outbox
+        serializer = serializers.MessageListSerializer(total_qs, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(request=serializers.MessageSerializer)
+    @action(detail=True,
+            name="send",
+            methods=("get",),
+            url_path="feedback_detail")
+    def retrieve_feedback(self, request, *args, **kwargs):
+        queryset = self.queryset.filter(is_feedback=True)
+        recipient = get_object_or_404(models.CustomUser,
+                                      pk=kwargs.get("recipient_id"))
+        queryset_outbox = queryset.filter(sender=request.user,
+                                          recipient=recipient)
+        queryset_inbox = queryset.filter(recipient=request.user,
+                                         sender=recipient)
+        total_qs = queryset_inbox | queryset_outbox
+        serializer = serializers.MessageListSerializer(total_qs, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(request=serializers.MessageSerializer)
+    @action(detail=True, name="send", methods=("post",), url_path="send")
+    def send_message(self, request, *args, **kwargs):
+        recipient = get_object_or_404(models.CustomUser,
+                                      pk=kwargs.get(self.lookup_field))
+        serializer = serializers.MessageSerializer(data=request.data,
+                                                   context={
+                                                       'sender': request.user,
+                                                       'recipient': recipient,
+                                                   })
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response("success")
+
+    @extend_schema(request=serializers.MessageSerializer)
+    @action(detail=True, name="send", methods=("post",),
+            url_path="send_feedback")
+    def send_feedback(self, request, *args, **kwargs):
+        recipient = get_object_or_404(models.CustomUser,
+                                      pk=kwargs.get(self.lookup_field))
+        serializer = serializers.MessageSerializer(data=request.data,
+                                                   context={
+                                                       'sender': request.user,
+                                                       'recipient': recipient,
+                                                       'is_feedback': True
+                                                   })
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response("success")
 
 
+
+class VerifyEmailViewCustom(VerifyEmailView):
+
+    def get(self, *args, **kwargs):
+        key = self.request.path.split('/')[-2]
+        serializer = self.get_serializer(data={'key': key})
+        serializer.is_valid(raise_exception=True)
+        self.kwargs['key'] = serializer.validated_data['key']
+        confirmation = self.get_object()
+        confirmation.confirm(self.request)
+        return Response({'detail': _('ok')}, status=status.HTTP_200_OK)

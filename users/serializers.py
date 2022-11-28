@@ -1,3 +1,4 @@
+from allauth.account.utils import setup_user_email
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework import serializers
@@ -7,7 +8,7 @@ from phonenumber_field.serializerfields import PhoneNumberField
 from users import models
 from allauth.account.adapter import DefaultAccountAdapter
 
-from content.serializers import ComplexContactSerializer
+from content.serializers import ComplexContactSerializer, UserShortSerializer
 
 
 class AuthLoginSerializer(LoginSerializer):
@@ -51,6 +52,7 @@ class AuthRegisterSerializer(RegisterSerializer):
         user.save()
         subscription = models.Subscription.objects.create(user=user)
         subscription.save()
+        setup_user_email(request, user, [])
         return user
 
 
@@ -107,3 +109,35 @@ class UsersListSerializer(serializers.ModelSerializer):
                   "phone", "email", "avatar",)
         read_only_fields = ("first_name", "is_developer", "is_blacklisted",
                             "phone", "email", "avatar",)
+
+
+class FileMessageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.File
+        fields = ("file", )
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    file = FileMessageSerializer(allow_null=True, required=False)
+
+    class Meta:
+        model = models.Message
+        fields = ("text", "file", "created")
+
+    def create(self, validated_data):
+        file = validated_data.pop('file')
+        message_obj = models.Message.objects.\
+            create(**validated_data, **self.context)
+        if file:
+            models.File.objects.create(**file, message=message_obj)
+        return message_obj
+
+
+class MessageListSerializer(MessageSerializer):
+    sender = UserShortSerializer()
+    recipient = UserShortSerializer()
+
+    class Meta(MessageSerializer.Meta):
+        fields = ("sender", "recipient", "text", "file", "created")
+        read_only_fields = ("created", )

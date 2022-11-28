@@ -95,11 +95,22 @@ class Filter(models.Model):
 class Message(models.Model):
     sender = models.ForeignKey(CustomUser,
                                on_delete=models.CASCADE,
-                               related_name='sender')
+                               related_name='outcome_message')
     recipient = models.ForeignKey(CustomUser,
                                   on_delete=models.CASCADE,
-                                  related_name='recipient')
-    text = models.CharField(max_length=200)
+                                  related_name='income_message')
+    text = models.CharField(max_length=200, null=True)
     created = models.DateTimeField(auto_now_add=True)
-    is_feedback = models.BooleanField(null=True, blank=True)
+    is_feedback = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ('-created', )
+
+
+class File(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE)
+    file = models.FileField(upload_to="files/", null=True)
+
+
+
 

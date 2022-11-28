@@ -1,6 +1,6 @@
 from drf_psq import Rule, PsqMixin
 
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.shortcuts import render, get_object_or_404
 
 from drf_spectacular.utils import extend_schema
@@ -121,20 +121,26 @@ class ComplexNewsViewSet(viewsets.ModelViewSet):
 
 @extend_schema(tags=["apartments"])
 class ApartmentViewSet(viewsets.ModelViewSet):
-    queryset = models.Apartment.objects.all()
+    queryset = models.Apartment.objects.filter(is_moderated=True)
     serializer_class = serializers.ApartmentSerializer
     # http_method_names = ('get', 'put', 'post', 'patch', 'delete')
     # parser_classes = [JSONParser]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data,
+                                           context={'owner': self.request.user})
         serializer.is_valid(raise_exception=True)
-        serializer.save(owner=self.request.user)
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, *args, **kwargs):
         apartment_obj = self.get_object()
-        serializer = self.get_serializer(apartment_obj)
+        if all([request.user != apartment_obj.owner,
+                not request.user.is_staff]):
+            apartment_obj.is_viewed.add(request.user)
+            serializer = serializers.ApartmentDetailSerializer(apartment_obj)
+        else:
+            serializer = serializers.ApartmentOwnerSerializer(apartment_obj)
         return Response(serializer.data)
 
     @extend_schema(tags=["add_to_favourite"],
@@ -151,8 +157,11 @@ class ApartmentViewSet(viewsets.ModelViewSet):
 
 @extend_schema(tags=["moderation"])
 class ApartmentModerationViewSet(viewsets.ModelViewSet):
-    queryset = models.Apartment.objects.filter(is_moderated=False)
-    serializer_class = serializers.ApartmentModerationList
+    queryset = models.Apartment.objects.filter(
+        ~Q(moderation_decide='Подтверждено')
+    )
+    serializer_class = serializers.ApartmentModerationObject
+    http_method_names = ("get", "put", "delete")
 
     def list(self, request, *args, **kwargs):
         queryset = self.queryset.filter(is_moderated=False)
@@ -162,12 +171,8 @@ class ApartmentModerationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
+        queryset = self.queryset.filter(is_moderated=False)
         apartment_obj = self.get_object()
-            # get_object_or_404(
-            # models.Apartment.objects.filter(is_moderated=False),
-            # pk=pk
-        # )
-        print(apartment_obj)
         serializer = serializers.ApartmentModerationObject(
             apartment_obj
         )
@@ -175,10 +180,6 @@ class ApartmentModerationViewSet(viewsets.ModelViewSet):
 
     @extend_schema(request=serializers.ApartmentModerationObject)
     def update(self, request, *args, **kwargs):
-        # apartment_obj = get_object_or_404(
-        #     models.Apartment.objects.filter(is_moderated=False),
-        #     pk=pk
-        # )
         apartment_obj = self.get_object()
         serializer = serializers.ApartmentModerationObject(
             apartment_obj, data=request.data
