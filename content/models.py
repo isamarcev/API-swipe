@@ -283,6 +283,7 @@ class Advertisement(models.Model):
                              null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
+    expired_end = models.DateField(null=True)
 
 
 class Complaint(models.Model):

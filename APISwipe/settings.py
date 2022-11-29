@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'drf_psq',
     'drf_spectacular',
     'drf_spectacular_sidecar',  # required for Django collectstatic discovery
+    'django_filters',
     'corsheaders',
     'content',
     'users',
@@ -72,9 +73,9 @@ REST_FRAMEWORK = {
         'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    # 'DEFAULT_PERMISSION_CLASSES': [
-    #     'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-    # ]
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated'
+    ]
 }
 
 # region ALL-AUTH

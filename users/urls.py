@@ -14,7 +14,9 @@ router = DefaultRouter()
 router.register(r'user', views.UserViewSet, basename='user_update')
 router.register(r'notary', views.NotaryViewSet, basename='notary_viewset')
 router.register(r'message', views.MessagesViewSet, basename='message_viewset')
-
+router.register(r'filters', views.FilterViewSet, basename='filter_viewset')
+router.register(r'mfc', views.ManyFunctionalCenterViewSet,
+                basename='mfc_viewset')
 urlpatterns = [
     path("", include(router.urls))
 ]

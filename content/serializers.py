@@ -1,10 +1,8 @@
 import datetime
-from django.core.files.base import ContentFile
-from django.db.models import Max, Count
+from django.db.models import Max
 from rest_framework import serializers
 
-import base64
-from drf_extra_fields.fields import Base64ImageField, HybridImageField
+from drf_extra_fields.fields import HybridImageField
 
 from content import models
 from content.services.service_serializer import update_related_object
@@ -47,6 +45,7 @@ class ComplexImageSerializer(serializers.ModelSerializer):
 
 class CorpusListingField(serializers.RelatedField):
     def to_representation(self, value):
+
         flat_for_corpus = models.Apartment.objects.filter(corpus=value.title).\
             count()
         corpus_info = value.title, flat_for_corpus
@@ -55,12 +54,20 @@ class CorpusListingField(serializers.RelatedField):
 
 class ComplexSerializer(serializers.ModelSerializer):
     complex_contact = ComplexContactSerializer()
-    complex_benefits = ComplexBenefitsSerializer(many=False, required=False)
+    complex_benefits = ComplexBenefitsSerializer(required=False)
     complex_news = ComplexNewsSerializer(many=True, read_only=True)
     complex_images = ComplexImageSerializer(many=True, read_only=True)
     complex_documents = ComplexDocumentSerializer(many=True, read_only=True)
-    complex_corpus = CorpusListingField(many=True,
-                                        read_only=True)
+    complex_corpus = serializers.SerializerMethodField()
+
+    def get_complex_corpus(self, obj):
+        apartments = models.Apartment.objects.filter(complex=obj).\
+            order_by("corpus")
+        corpus_flat = dict()
+        for element in apartments:
+            corpus_flat[f'Корпус {element.corpus}'] = apartments\
+                .filter(corpus=element.corpus).count()
+        return corpus_flat
 
     class Meta:
         model = models.Complex
@@ -78,7 +85,8 @@ class ComplexSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         contact_data = validated_data.pop('complex_contact')
         benefits_data = validated_data.pop('complex_benefits')
-        complex_obj = models.Complex.objects.create(**validated_data)
+        complex_obj = models.Complex.objects.create(**validated_data,
+                                                    **self.context)
         userModels.Contact.objects.create(**contact_data, complex=complex_obj,
                                           contact_type='Отдел продаж')
         models.ComplexBenefits.objects.create(complex=complex_obj,
@@ -105,7 +113,14 @@ class ComplexRestrictedSerializer(ComplexSerializer):
 class ComplexCreateSerializer(ComplexSerializer):
 
     class Meta(ComplexSerializer.Meta):
-        exclude = ['complex_news', 'complex_images', 'complex_documents']
+        fields = ['id', "name", 'owner', 'complex_contact', 'complex_benefits',
+                  'description', 'address', 'min_price', 'price_per_m2',
+                  'area_from', 'area_to', 'map_lat', 'map_long', 'status',
+                  'type', 'klass', 'technology', 'territory',
+                  'distance_to_sea', 'invoice', 'cell_height', 'gas',
+                  'electricity', 'heating', 'water_cupply', 'sewerage',
+                  'formalization', 'payment_form', 'purpose', 'payments_part',
+                  'complex_corpus']
 
 
 class ApartmentImageListSerializer(serializers.ListSerializer):
@@ -132,10 +147,24 @@ class ApartmentImageSerializer(serializers.ModelSerializer):
         list_serializer_class = ApartmentImageListSerializer
 
 
-class ComplexForApartmentSerializer(serializers.ModelSerializer):
+class AdvertisementSerializer(serializers.ModelSerializer):
     class Meta:
-        model = models.Complex
-        fields = ["id", "name"]
+        model = models.Advertisement
+        fields = ["id", "apartment", "is_big", "is_up", "is_turbo", "add_text",
+                  "add_color", "text", "color"]
+        read_only_fields = ["apartment"]
+
+    def update(self, instance, validated_data):
+        if validated_data.get('is_up'):
+            flat = instance.apartment
+            flat.created_date = datetime.datetime.now()
+            flat.save()
+        if not instance.is_active and validated_data.get('is_active'):
+            instance.is_active = validated_data.pop('is_active')
+            instance.expired_end = datetime.datetime.today() + \
+                                   datetime.timedelta(days=10)
+        return super(AdvertisementSerializer, self).update(instance,
+                                                           validated_data)
 
 
 class ApartmentSerializer(serializers.ModelSerializer):
@@ -161,8 +190,10 @@ class ApartmentSerializer(serializers.ModelSerializer):
         apartment_obj = models.Apartment.objects.create(**validated_data,
                                                         owner=self.context.
                                                         get('owner'))
-        models.Advertisement.objects.create(apartment=apartment_obj,
-                                            created_by=apartment_obj.owner)
+        models.Advertisement.objects.\
+            create(apartment=apartment_obj,
+                   created_by=apartment_obj.owner,
+                   )
         try:
             image_serializer = ApartmentImageSerializer(
                 data=apartment_images,
@@ -208,13 +239,9 @@ class ApartmentDetailSerializer(serializers.ModelSerializer):
                   "apartment_images")
 
     def get_max_floor_count(self, obj):
-        floor = models.Apartment.objects.filter(section=obj.section).\
-            values_list('floor')
-        max_count = 0
-        for element in floor:
-            if element[0] > max_count:
-                max_count = element[0]
-        return max_count
+        floor = models.Apartment.objects.filter(section=obj.section)\
+            .aggregate(Max('floor'))
+        return floor['floor__max']
 
 
 class ApartmentOwnerSerializer(ApartmentDetailSerializer):
@@ -226,28 +253,12 @@ class ApartmentOwnerSerializer(ApartmentDetailSerializer):
 
     def get_viewed_and_favourite(self, obj):
         users = CustomUser.objects\
-            .filter(is_developer=False, is_staff=False)
+            .filter(is_developer=False, is_staff=False)\
+            .prefetch_related('favourite_apartment')
         favourite_counter = len([1 for element in users
                                  if obj in element.favourite_apartment.all()])
         return {'viewed': len(obj.is_viewed.all()),
                 "favourite": favourite_counter}
-
-
-class AdvertisementSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = models.Advertisement
-        fields = ["id", "apartment", "is_big", "is_up", "is_turbo", "add_text",
-                  "add_color", "text", "color"]
-        read_only_fields = ["apartment"]
-        
-    def update(self, instance, validated_data):
-        if validated_data.get('is_up'):
-            flat = instance.apartment
-            flat.created_date = datetime.datetime.now()
-            flat.save()
-        return super(AdvertisementSerializer, self).update(instance,
-                                                           validated_data)
 
 
 class ApartmentRestrictedSerializer(ApartmentSerializer):
@@ -271,9 +282,27 @@ class ComplaintSerializer(serializers.ModelSerializer):
         return complaint
 
 
-class ComplexAndApartmentSerializer(serializers.Serializer):
-    complex = ComplexRestrictedSerializer(many=True, read_only=True)
-    apartment = ApartmentRestrictedSerializer(many=True, read_only=True)
+class ApartmentBookingSerializer(ApartmentDetailSerializer):
+
+    class Meta(ApartmentDetailSerializer.Meta):
+        fields = (
+            "id", "schema", "price", "corpus", "floor", "rises", "section",
+            "price_per_square_meter", "number", "rooms", "area",
+            "max_floor_count", "is_booked", "complex"
+        )
+        read_only_fields = (
+            "schema", "price", "corpus", "floor", "rises", "section",
+            "price_per_square_meter", "number", "rooms", "area",
+            "max_floor_count", "complex"
+        )
+
+    def update(self, instance, validated_data):
+        if instance.is_booked:
+            instance.is_booked = False
+        else:
+            instance.is_booked = True
+        instance.save()
+        return instance
 
 
 class ApartmentModerationList(ApartmentRestrictedSerializer):
@@ -305,6 +334,10 @@ class ApartmentModerationObject(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         if validated_data.get("moderation_decide") == "Подтверждено":
             instance.is_moderated = True
+            instance.apartment_ad.is_active = True
+            instance.apartment_ad.expired_end = datetime.datetime.today() +\
+                                                datetime.timedelta(days=10)
+
         return super(ApartmentModerationObject, self).update(instance,
                                                              validated_data)
 
@@ -315,5 +348,4 @@ class ApartmentModerationObject(serializers.ModelSerializer):
                 'При отклонении объявления нужно обязательно выбрать причину.'
             )
         return value
-
 

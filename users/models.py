@@ -66,29 +66,33 @@ class Subscription(models.Model):
 
 
 class Filter(models.Model):
-    name = models.CharField(max_length=20)
-    apartments = [('new', 'Новострои'), ('secondary', 'Вторичный рынок'),
-                  ('cottage', 'Коттеджы')]
-    apartment_type = models.CharField(max_length=30, choices=apartments)
+    name = models.CharField(max_length=20, null=True, blank=True)
+    apartments = (('Новострои', 'Новострои'),
+                  ('Вторичный рынок', 'Вторичный рынок'),
+                  ('Коттеджи', 'Коттеджи'))
+    apartment_type = models.CharField(max_length=30, choices=apartments,
+                                      null=True, blank=True)
     status = models.CharField(max_length=20, choices=[('ready', 'Сдан'),
                                                       ('building', 'Строится')])
     district = models.CharField(max_length=30, null=True, blank=True)
     microdistrict = models.CharField(max_length=30, null=True, blank=True)
-    rooms = models.PositiveIntegerField()
-    price_low = models.PositiveIntegerField()
-    price_high = models.PositiveIntegerField()
-    area_low = models.PositiveIntegerField()
-    area_high = models.PositiveIntegerField()
+    rooms = models.PositiveIntegerField(null=True, blank=True)
+    price_low = models.PositiveIntegerField(null=True, blank=True)
+    price_high = models.PositiveIntegerField(null=True, blank=True)
+    area_low = models.PositiveIntegerField(null=True, blank=True)
+    area_high = models.PositiveIntegerField(null=True, blank=True)
     purpose = models.CharField(max_length=30,
                                choices=[('flat', 'Квартира'),
                                         ('commercial', 'Для коммерции'),
-                                        ('living', 'Жилое помещение')])
+                                        ('living', 'Жилое помещение')],
+                               null=True, blank=True)
     payments = [('onlycash', 'Только наличные'),
                 ('capital', 'Мат. капитал'),
                 ('mortgage', 'Ипотека'),
                 ('no matter', 'Неважно')]
     payment_options = models.CharField(max_length=30,
-                                       choices=payments)
+                                       choices=payments,
+                                       null=True, blank=True)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
 
@@ -112,5 +116,9 @@ class File(models.Model):
     file = models.FileField(upload_to="files/", null=True)
 
 
-
-
+class ManyFunctionalCenter(models.Model):
+    address = models.CharField(max_length=50)
+    map_lat = models.DecimalField(decimal_places=8, max_digits=10,
+                                  null=True, blank=True)
+    map_long = models.DecimalField(decimal_places=8, max_digits=10,
+                                   null=True, blank=True)

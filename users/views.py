@@ -1,30 +1,32 @@
 from dj_rest_auth.registration.views import VerifyEmailView
 from drf_psq import Rule, PsqMixin
 
-from django.db.models import Max
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 
 from drf_spectacular.utils import extend_schema
 
-from rest_framework import viewsets, status, mixins
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from users import models, serializers
-from content.permissions import IsComplexOwner, IsApartmentOwner
-from users.permissions import IsDeveloperUser
-from content.services.service_serializer import create_related_object
 
 
 @extend_schema(tags=["cabinet"])
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(PsqMixin, viewsets.ModelViewSet):
     serializer_class = serializers.UserSerializer
     queryset = models.CustomUser.objects.all()
-    
+    psq_rules = {
+        ('list', 'add_to_blacklist', 'blacklist', 'destroy'): [
+            Rule([IsAdminUser]),
+        ],
+        ('update', 'partial_update'): [
+            Rule([IsAuthenticated],)
+        ],
+    }
+
     @action(detail=True, methods=["put"], name="subscription_continue")
     def subscription_continue(self, request, *args, **kwargs):
         subscription = get_object_or_404(models.Subscription,
@@ -55,7 +57,7 @@ class UserViewSet(viewsets.ModelViewSet):
                          'count': queryset.count()})
 
     @extend_schema(request=serializers.serializers.Serializer)
-    @action(detail=True, methods=["put"], name="blacklist")
+    @action(detail=True, methods=["put"], name="add_to_blacklist")
     def add_to_blacklist(self, request, *args, **kwargs):
         user = get_object_or_404(models.CustomUser, pk=kwargs.get("pk"))
         if not user.is_blacklisted:
@@ -78,9 +80,15 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=["notary"])
-class NotaryViewSet(viewsets.ModelViewSet):
+class NotaryViewSet(PsqMixin, viewsets.ModelViewSet):
     queryset = models.Notary.objects.all()
     serializer_class = serializers.NotarySerializer
+
+    psq_rules = {
+        ('create', 'update', 'partial_update', 'destroy'): [
+            Rule([IsAdminUser]),
+        ],
+    }
 
 
 @extend_schema(tags=["messages"])
@@ -149,7 +157,6 @@ class MessagesViewSet(viewsets.GenericViewSet):
         return Response("success")
 
 
-
 class VerifyEmailViewCustom(VerifyEmailView):
 
     def get(self, *args, **kwargs):
@@ -160,3 +167,28 @@ class VerifyEmailViewCustom(VerifyEmailView):
         confirmation = self.get_object()
         confirmation.confirm(self.request)
         return Response({'detail': _('ok')}, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["filters"])
+class FilterViewSet(viewsets.ModelViewSet):
+    serializer_class = serializers.FilterSerializer
+
+    def get_queryset(self):
+        queryset = models.Filter.objects.filter(user=self.request.user)
+        return queryset
+
+
+@extend_schema(tags=["many_functional_center"])
+class ManyFunctionalCenterViewSet(PsqMixin, viewsets.ModelViewSet):
+    serializer_class = serializers.ManyFunctionalCenterSerializer
+    queryset = models.ManyFunctionalCenter.objects.all()
+
+    psq_rules = {
+        ('list', 'retrieve'): [
+            Rule([IsAdminUser]),
+            Rule([IsAuthenticated]),
+        ],
+        ('create', 'update', 'partial_update', 'destroy'): [
+            Rule([IsAdminUser], )
+        ],
+    }

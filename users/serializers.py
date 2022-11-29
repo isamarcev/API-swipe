@@ -6,7 +6,6 @@ from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import LoginSerializer
 from phonenumber_field.serializerfields import PhoneNumberField
 from users import models
-from allauth.account.adapter import DefaultAccountAdapter
 
 from content.serializers import ComplexContactSerializer, UserShortSerializer
 
@@ -28,6 +27,7 @@ class AuthRegisterSerializer(RegisterSerializer):
         min_length=2,
         required=True
     )
+    is_developer = serializers.BooleanField(default=False)
 
     def get_cleaned_data(self):
         return {
@@ -35,13 +35,15 @@ class AuthRegisterSerializer(RegisterSerializer):
             "password1": self.validated_data.get("password1", ""),
             "email": self.validated_data.get("email", ""),
             "first_name": self.validated_data.get("first_name", ""),
-            "last_name": self.validated_data.get("last_name", "")
+            "last_name": self.validated_data.get("last_name", ""),
+            "is_developer": self.validated_data.get("is_developer", "")
         }
 
     def save(self, request):
         cleaned_data = self.get_cleaned_data()
         user = models.CustomUser.objects.create(
             email=cleaned_data.get('email'),
+            is_developer=cleaned_data.get('is_developer'),
             first_name=cleaned_data.get('first_name'),
             last_name=cleaned_data.get('last_name'),
             phone=cleaned_data.get('phone'),
@@ -126,7 +128,10 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ("text", "file", "created")
 
     def create(self, validated_data):
-        file = validated_data.pop('file')
+        try:
+            file = validated_data.pop('file')
+        except KeyError:
+            pass
         message_obj = models.Message.objects.\
             create(**validated_data, **self.context)
         if file:
@@ -141,3 +146,48 @@ class MessageListSerializer(MessageSerializer):
     class Meta(MessageSerializer.Meta):
         fields = ("sender", "recipient", "text", "file", "created")
         read_only_fields = ("created", )
+
+
+class FilterSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Filter
+        fields = ("id", "name", "apartment_type", "status", "rooms",
+                  "price_low", "price_high", "area_low", "area_high",
+                  "purpose", "payment_options", "user")
+        read_only_fields = ("user", )
+
+    def validate(self, data):
+        if 'area_low' in data and data['area_low'] is not None:
+            if 'area_high' in data and data['area_high'] is not None:
+                if data['area_low'] >= data['area_high']:
+                    raise serializers.ValidationError(
+                        {'error_area': 'area_low >= area_high'}
+                    )
+        if 'price_low' in data and data['price_low'] is not None:
+            if 'price_high' in data and data['price_high'] is not None:
+                if data['price_low'] >= data['price_high']:
+                    raise serializers.ValidationError(
+                        {'error_price': 'price_low >= price_high'}
+                    )
+        return data
+
+    def create(self, validated_data):
+        requests_user = self.context.get('request').user
+        name = validated_data.get("apartment_type")
+        if models.Filter.objects.filter(user=requests_user).count() >= 4:
+            raise serializers.ValidationError(
+                {
+                    'error_max_count_user_filter':
+                        'The maximum count of saved filters is 4'}
+            )
+        return models.Filter.objects.create(**validated_data,
+                                            user=requests_user,
+                                            name=name)
+
+
+class ManyFunctionalCenterSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.ManyFunctionalCenter
+        fields = '__all__'
