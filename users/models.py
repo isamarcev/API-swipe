@@ -1,5 +1,5 @@
 import datetime
-
+from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
@@ -60,7 +60,7 @@ class Subscription(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE,
                                 related_name='subscription')
     expired_at = models.DateTimeField(null=True,
-                                      default=datetime.datetime.now())
+                                      default=timezone.now)
     auto_continue = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
 

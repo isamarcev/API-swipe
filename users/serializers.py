@@ -174,7 +174,9 @@ class FilterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         requests_user = self.context.get('request').user
-        name = validated_data.get("apartment_type")
+        name = validated_data.pop("name")
+        if not name:
+            name = validated_data.get("apartment_type")
         if models.Filter.objects.filter(user=requests_user).count() >= 4:
             raise serializers.ValidationError(
                 {
