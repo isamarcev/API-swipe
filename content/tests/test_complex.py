@@ -1,6 +1,8 @@
 import pytest
+from django.urls import reverse
 from model_bakery import baker
-from content.models import Complex
+from content.models import Complex, ComplexBenefits
+from users.models import Contact
 
 data = {
         "name": "NEW COMPLEX",
@@ -45,7 +47,6 @@ data = {
 
 
 def checker(user, client):
-    # complex_obj = baker.make(Complex, user=user, phone='0730233266')
     client.force_authenticate(user=user)
     response = client.post("/estate/complex/",
                            data=data, format="json")
@@ -68,3 +69,53 @@ def test_create_complex_by_developer(user_is_developer_content, client):
 @pytest.mark.django_db
 def test_create_complex_by_user(user_default_content, client):
     checker(user_default_content, client)
+
+
+pytestmark = pytest.mark.django_db
+
+
+class TestUpdateComplex:
+    def update_complex(self, client, user):
+        client.force_authenticate(user=user)
+        response = client.post("/estate/complex/",
+                               data=data, format="json")
+        flag = reverse("complex-detail", kwargs={'pk': response.data.get('id')})
+        data['name'] = "Complex update"
+        json_data = data
+        response_update = client.put(flag, data=json_data, format="json")
+        if user.is_developer and user.id == response_update.data.get('owner'):
+            assert response_update.status_code == 200
+        elif user.is_staff:
+            assert response_update.status_code == 200
+        elif not all([user.is_developer, user.is_staff]):
+            assert response_update.status_code == 404
+
+    def retrieve(self, client, user, user_is_developer_content=None):
+        if user_is_developer_content:
+            client.force_authenticate(user=user_is_developer_content)
+        else:
+            client.force_authenticate(user=user)
+        response = client.post("/estate/complex/",
+                               data=data, format="json")
+        flag = reverse("complex-detail", kwargs={'pk': response.data.get('id')})
+        data['name'] = "Complex update"
+        if user_is_developer_content:
+            client.force_authenticate(user=user)
+        response_update = client.get(flag)
+        assert response_update.status_code == 200
+
+    def test_developer(self, client, user_is_developer_content):
+        self.update_complex(client, user_is_developer_content)
+        self.retrieve(client, user_is_developer_content)
+
+    def test_staff(self, client, user_is_staff_content):
+        self.update_complex(client, user_is_staff_content)
+        self.retrieve(client, user_is_staff_content)
+
+    def test_user(self, client, user_default_content, user_is_developer_content):
+        self.update_complex(client, user_default_content)
+        self.retrieve(client, user_default_content, user_is_developer_content)
+
+
+
+

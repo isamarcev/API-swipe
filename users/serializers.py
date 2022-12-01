@@ -103,10 +103,9 @@ class NotarySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UsersListSerializer(serializers.ModelSerializer):
+class UsersListSerializer(UserShortSerializer):
 
-    class Meta:
-        model = models.CustomUser
+    class Meta(UserShortSerializer.Meta):
         fields = ("first_name", "is_developer", "is_blacklisted",
                   "phone", "email", "avatar",)
         read_only_fields = ("first_name", "is_developer", "is_blacklisted",
@@ -140,12 +139,12 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class MessageListSerializer(MessageSerializer):
-    sender = UserShortSerializer()
-    recipient = UserShortSerializer()
+    # sender = UserShortSerializer()
+    # recipient = UserShortSerializer()
 
     class Meta(MessageSerializer.Meta):
-        fields = ("sender", "recipient", "text", "file", "created")
-        read_only_fields = ("created", )
+        fields = ("sender", "text", "file", "created")
+        read_only_fields = ("sender", "text", "file", "created")
 
 
 class FilterSerializer(serializers.ModelSerializer):

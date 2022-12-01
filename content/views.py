@@ -28,7 +28,7 @@ class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
     http_method_names = ['get', "post", "put", "delete"]
 
     psq_rules = {
-        ('list', 'add_complex_to_favourite'): [
+        ('list', 'add_complex_to_favourite', 'retrieve'): [
             Rule([IsAuthenticated]),
         ],
         'create': [
@@ -37,6 +37,7 @@ class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
         ],
         ('update', 'partial_update', 'destroy'): [
             Rule([IsAdminUser], serializers.ComplexCreateSerializer),
+            Rule([IsDeveloperUser], serializers.ComplexCreateSerializer),
             Rule([IsComplexOwner], serializers.ComplexCreateSerializer)
         ],
     }
@@ -231,17 +232,18 @@ class ApartmentModerationViewSet(viewsets.ModelViewSet):
     queryset = models.Apartment.objects.filter(
         ~Q(moderation_decide='Подтверждено')
     ).prefetch_related('apartment_images')
-    serializer_class = serializers.ApartmentModerationObject
+    serializer_class = serializers.ApartmentModerationList
     http_method_names = ("get", "put", "delete")
     permission_classes = [IsAdminUser]
 
     def list(self, request, *args, **kwargs):
         queryset = self.queryset.filter(is_moderated=False)
-        serializer = serializers.ApartmentModerationList(
+        serializer = self.serializer_class(
             queryset, many=True
         )
         return Response(serializer.data)
 
+    @extend_schema(request=serializers.ApartmentModerationObject)
     def retrieve(self, request, *args, **kwargs):
         apartment_obj = self.get_object()
         serializer = serializers.ApartmentModerationObject(
@@ -261,19 +263,28 @@ class ApartmentModerationViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=["advertisement"])
-class AdvertisementViewSer(viewsets.ModelViewSet):
+class AdvertisementViewSer(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     queryset = models.Advertisement.objects.all()
     serializer_class = serializers.AdvertisementSerializer
-    http_method_names = ["get", "put", "delete"]
+    http_method_names = ["put"]
     lookup_field = 'apartment'
     permission_classes = [IsApartmentOwner]
 
 
 @extend_schema(tags=["complaint"])
-class ComplaintViewSet(viewsets.ModelViewSet):
+class ComplaintViewSet(PsqMixin, viewsets.ModelViewSet):
     queryset = models.Complaint.objects.all()
     serializer_class = serializers.ComplaintSerializer
     http_method_names = ["get", "post", "put", "delete"]
+
+    psq_rules = {
+        ('list', 'delete', 'retrieve', 'destroy'): [
+            Rule([IsAdminUser]),
+        ],
+        'create': [
+            Rule([IsAuthenticated], )
+        ],
+    }
 
     def create(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data,
