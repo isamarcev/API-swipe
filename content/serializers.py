@@ -185,8 +185,11 @@ class ApartmentSerializer(serializers.ModelSerializer):
                             "created_date"]
 
     def create(self, validated_data):
-        apartment_images = validated_data.pop('apartment_images')
-
+        apartment_images = None
+        try:
+            apartment_images = validated_data.pop('apartment_images')
+        except KeyError:
+            pass
         apartment_obj = models.Apartment.objects.create(**validated_data,
                                                         owner=self.context.
                                                         get('owner'))
@@ -194,14 +197,13 @@ class ApartmentSerializer(serializers.ModelSerializer):
             create(apartment=apartment_obj,
                    created_by=apartment_obj.owner,
                    )
-        try:
+        if apartment_images:
             image_serializer = ApartmentImageSerializer(
                 data=apartment_images,
                 context={'apartment': apartment_obj}, many=True)
             image_serializer.is_valid(raise_exception=True)
             image_serializer.save()
-        except KeyError:
-            pass
+
         return apartment_obj
 
     def update(self, instance, validated_data):

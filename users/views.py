@@ -27,6 +27,8 @@ class UserViewSet(PsqMixin, viewsets.ModelViewSet):
         ],
     }
 
+    @extend_schema(tags=["cabinet"],
+                   request=serializers.SubscriptionSerializer)
     @action(detail=True, methods=["put"], name="subscription_continue")
     def subscription_continue(self, request, *args, **kwargs):
         subscription = get_object_or_404(models.Subscription,

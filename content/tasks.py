@@ -21,13 +21,15 @@ def deactivate_user_subscription():
     print("Deactivate starting")
     subscription = Subscription.objects.filter(auto_continue=False,
                                                expired_at__lt=datetime.now())
-    subscription.update(is_active=False)
+    email_list = [x.user.email for x in subscription]
+
     send_mail('SWIPE API',
               'Your subscription has expired',
               None,
-              list(subscription.values_list('user__email')),
+              email_list,
               fail_silently=False
               )
+    subscription.update(is_active=False)
     print("Deactivate DONE")
 
 
@@ -38,12 +40,14 @@ def deactivate_announcement_advertising():
     """
     print('task "deactivate_announcement_advertising" send')
     advertising = Advertisement.objects.filter(is_active=True,
-                                               expired_end__lt=datetime.now())
-    send_mail('SWIPE',
-              'Your advertising has expired',
-              None,
-              list(advertising.values_list('apartment__owner__email')),
-              fail_silently=False
-              )
+                                               expired_end__lt=datetime.now())\
+        .select_related('apartment__complex', 'apartment__owner')
+    for user in advertising:
+        send_mail('SWIPE',
+                  f'Your advertising №{user.apartment.number} in {user.apartment.complex} has expired',
+                  None,
+                  [user.apartment.owner.email],
+                  fail_silently=False
+                  )
     advertising.update(is_active=False)
     print('task "deactivate_announcement_advertising" complete')

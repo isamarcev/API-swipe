@@ -181,7 +181,7 @@ class ApartmentViewSet(viewsets.ModelViewSet):
 
     @extend_schema(tags=["favourites"],
                    request=serializers.serializers.Serializer)
-    @action(detail=True, name='favourites_apartments', methods=["get"])
+    @action(detail=False, name='favourites_apartments', methods=["get"])
     def favourites_apartment(self, request, *args, **kwargs):
         apartments = request.user.favourite_apartment.all()
         serializer = serializers.ApartmentRestrictedSerializer(

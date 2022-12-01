@@ -68,7 +68,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         if instance.expired_at < timezone.now():
             instance.expired_at = timezone.now() \
-                                  + timedelta(minutes=15)
+                                  + timedelta(days=10)
             instance.is_active = True
         return super(SubscriptionSerializer, self).update(instance,
                                                           validated_data)
