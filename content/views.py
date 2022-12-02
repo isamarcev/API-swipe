@@ -1,4 +1,3 @@
-from django.shortcuts import get_object_or_404
 from drf_psq import Rule, PsqMixin
 
 from django.db.models import Q
@@ -6,7 +5,8 @@ from django.db.models import Q
 from django_filters import rest_framework as filters
 from .filters import AdvertisementFilter, ApartmentFilter
 
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, \
+    OpenApiResponse
 
 from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
@@ -43,6 +43,9 @@ class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
         ],
     }
 
+    @extend_schema(responses={200: OpenApiResponse(
+        response=serializers.ComplexRestrictedSerializer
+    )})
     def list(self, request, *args, **kwargs):
         queryset = models.Complex.objects.all()
         serializer = serializers.ComplexRestrictedSerializer(queryset,
@@ -75,7 +78,10 @@ class ComplexViewSet(PsqMixin, viewsets.ModelViewSet):
         return Response("Добавлено")
 
     @extend_schema(tags=["favourites"],
-                   request=serializers.serializers.Serializer)
+                   request=serializers.serializers.Serializer,
+                   responses={200: OpenApiResponse(
+                       response=serializers.ComplexRestrictedSerializer)}
+                   )
     @action(detail=False, name='complex_favourite', methods=["get"], )
     def favourites_complex(self, request, *args, **kwargs):
         complexes = request.user.favourite_complex.all()
@@ -131,7 +137,7 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
     queryset = models.Apartment.objects.filter(is_moderated=True)\
         .prefetch_related('apartment_images', 'apartment_ad',).\
         select_related('owner')
-    serializer_class = serializers.ApartmentSerializer
+    serializer_class = serializers.ApartmentRestrictedSerializer
     filter_backends = (filters.DjangoFilterBackend, )
     filterset_class = AdvertisementFilter
     psq_rules = {
@@ -148,7 +154,6 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
         ],
     }
 
-
     def get_queryset(self):
         if self.action == 'update' or self.action == 'destroy':
             return models.Apartment.objects.all()\
@@ -161,8 +166,11 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
                                                                many=True)
         return Response(serializer.data)
 
+    @extend_schema(request=serializers.ApartmentSerializer,
+                   responses={201: OpenApiResponse(
+                       response=serializers.ApartmentSerializer)})
     def create(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data,
+        serializer = serializers.ApartmentSerializer(data=request.data,
                                            context={'owner': self.request.user})
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -178,28 +186,35 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
             serializer = serializers.ApartmentOwnerSerializer(apartment_obj)
         return Response(serializer.data)
 
+    @extend_schema(request=serializers.ApartmentSerializer,
+                   responses={200: OpenApiResponse(
+                       response=serializers.ApartmentSerializer)}
+                   )
     def update(self, request, *args, **kwargs):
         apartment = self.get_object()
         if apartment and apartment.owner == request.user:
-            serializer = self.serializer_class(apartment, data=request.data)
+            serializer = serializers.ApartmentSerializer(apartment, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK )
         return Response(status=status.HTTP_403_FORBIDDEN)
 
     @extend_schema(tags=["favourites"],
-                   request=serializers.serializers.Serializer)
+                   request=serializers.serializers.Serializer,)
     @action(detail=True, name='add_flat_to_favourite', methods=["put"])
     def add_flat_to_favourite(self, request, *args, **kwargs):
         apartment = self.get_object()
         if apartment in request.user.favourite_apartment.all():
             request.user.favourite_apartment.remove(apartment)
-            return Response("Удалено")
+            return Response({'message':"Удалено"})
         request.user.favourite_apartment.add(apartment)
-        return Response("Добавлено")
+        return Response({"message": "Добавлено"})
 
     @extend_schema(tags=["favourites"],
-                   request=serializers.serializers.Serializer)
+                   request=serializers.serializers.Serializer,
+                   responses={200: OpenApiResponse(
+                       response=serializers.ApartmentRestrictedSerializer)}
+                   )
     @action(detail=False, name='favourites_apartments', methods=["get"])
     def favourites_apartment(self, request, *args, **kwargs):
         apartments = request.user.favourite_apartment.all()
@@ -208,6 +223,8 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
         )
         return Response(serializer.data)
 
+    @extend_schema(responses={200: OpenApiResponse(
+        response=serializers.ApartmentRestrictedSerializer)})
     @action(detail=False, name="flat-list-for-user", methods=["get"],
             url_path="my-apartment-list")
     def flats_list(self, request):
