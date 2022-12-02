@@ -127,7 +127,7 @@ class ComplexNewsViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema(tags=["apartments"])
-class ApartmentViewSet(viewsets.ModelViewSet):
+class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
     queryset = models.Apartment.objects.filter(is_moderated=True)\
         .prefetch_related('apartment_images', 'apartment_ad',).\
         select_related('owner')
@@ -147,9 +147,9 @@ class ApartmentViewSet(viewsets.ModelViewSet):
         ],
     }
 
+
     def get_queryset(self):
-        if self.action == 'update':
-            print(self.action)
+        if self.action == 'update' or self.action == 'destroy':
             return models.Apartment.objects.all()\
                 .prefetch_related('apartment_images', 'apartment_ad',).\
                 select_related('owner')

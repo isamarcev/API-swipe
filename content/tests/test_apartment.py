@@ -107,3 +107,35 @@ class TestApartment:
         assert response_update.status_code == 200
 
 
+    def test_delete(self, client, user_default_content, user_is_developer_content, user_is_staff_content):
+        complex_obj = self.create_complex(client, user_is_developer_content)
+
+        old_data = copy(apartment_data)
+        old_data["complex"] = complex_obj.get("id")
+
+        second_apartment = copy(apartment_data)
+        second_apartment["complex"] = complex_obj.get("id")
+        second_apartment["section"] = 1445
+
+        third_apartment = copy(apartment_data)
+        third_apartment["complex"] = complex_obj.get("id")
+        third_apartment["floor"] = 1556
+
+        client.force_authenticate(user=user_default_content)
+        response = client.post(self.endpoint, data=old_data, format="json")
+        response2 = client.post(self.endpoint, data=second_apartment, format="json")
+        response3 = client.post(self.endpoint, data=third_apartment, format="json")
+
+        flag = reverse("apartment-detail", kwargs={'pk': response.data.get('id')})
+        flag2 = reverse("apartment-detail", kwargs={'pk': response2.data.get('id')})
+        flag3 = reverse("apartment-detail", kwargs={'pk': response3.data.get('id')})
+
+        response_delete_owner = client.delete(flag)
+        client.force_authenticate(user=user_is_staff_content)
+        response_delete_admin = client.delete(flag2)
+        client.force_authenticate(user=user_is_developer_content)
+        response_delete_developer = client.delete(flag3)
+
+        assert response_delete_owner.status_code == 204
+        assert response_delete_admin.status_code == 204
+        assert response_delete_developer.status_code == 403
