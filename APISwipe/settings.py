@@ -31,7 +31,7 @@ SECRET_KEY = env('SECRET_KEY')
 
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["161.35.204.232", "localhost", "127.0.0.1"]
 
 
 INSTALLED_APPS = [
