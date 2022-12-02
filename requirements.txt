@@ -2,10 +2,14 @@ django-environ==0.9.0
 psycopg2-binary==2.9.5
 djangorestframework==3.14.0
 django-cors-headers==3.13.0
-pillow=9.3.0
+pillow==9.3.0
 djangorestframework-simplejwt==5.2.2
 django-phonenumber-field==7.0.0
+phonenumbers==8.13.0
 drf-spectacular==0.24.2
+drf-spectacular-sidecar==2022.11.1
+
+
 django-filter==22.1
 drf_psq==1.1.0
 dj_rest_auth==2.2.5
@@ -15,3 +19,9 @@ django-celery-beat==2.4.0
 celery==5.2.7
 redis==4.3.5
 
+gunicorn==20.1.0
+
+#test
+model_bakery==1.9.0
+pytest==7.2.0
+pytest-django==4.5.2

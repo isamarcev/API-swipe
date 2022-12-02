@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from drf_spectacular.utils import extend_schema
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -15,21 +15,26 @@ from users import models, serializers
 
 
 @extend_schema(tags=["cabinet"])
-class UserViewSet(PsqMixin, viewsets.ModelViewSet):
-    serializer_class = serializers.UserSerializer
+class UserViewSet(PsqMixin,
+                  mixins.ListModelMixin,
+                  mixins.RetrieveModelMixin,
+                  mixins.DestroyModelMixin,
+                  viewsets.GenericViewSet):
+    serializer_class = serializers.UserShortSerializer
     queryset = models.CustomUser.objects.all()
     psq_rules = {
         ('list', 'add_to_blacklist', 'blacklist', 'destroy'): [
             Rule([IsAdminUser]),
         ],
-        ('update', 'partial_update'): [
+        'retrieve': [
             Rule([IsAuthenticated],)
         ],
     }
 
     @extend_schema(tags=["cabinet"],
                    request=serializers.SubscriptionSerializer)
-    @action(detail=True, methods=["put"], name="subscription_continue")
+    @action(detail=True, methods=["put"], name="subscription-continue",
+            url_path="subscription-continue")
     def subscription_continue(self, request, *args, **kwargs):
         subscription = get_object_or_404(models.Subscription,
                                          user=request.user)
@@ -59,7 +64,8 @@ class UserViewSet(PsqMixin, viewsets.ModelViewSet):
                          'count': queryset.count()})
 
     @extend_schema(request=serializers.serializers.Serializer)
-    @action(detail=True, methods=["put"], name="add_to_blacklist")
+    @action(detail=True, methods=["put"], name="add_to_blacklist",
+            url_path="add-to-blacklist")
     def add_to_blacklist(self, request, *args, **kwargs):
         user = get_object_or_404(models.CustomUser, pk=kwargs.get("pk"))
         if not user.is_blacklisted:
@@ -70,12 +76,14 @@ class UserViewSet(PsqMixin, viewsets.ModelViewSet):
         user.save()
         return Response('Пользователь уделен из черного списка')
 
-    def update(self, request, *args, **kwargs):
+    @action(detail=False, methods=["put"], name="update_profile",
+            url_path="update-profile")
+    def update_profile(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance,
-                                         data=request.data,
-                                         partial=partial)
+        instance = request.user
+        serializer = serializers.UserSerializer(instance,
+                                                data=request.data,
+                                                partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
@@ -115,7 +123,7 @@ class MessagesViewSet(viewsets.GenericViewSet):
     @action(detail=True,
             name="send",
             methods=("get",),
-            url_path="feedback_detail")
+            url_path="feedback-detail")
     def retrieve_feedback(self, request, *args, **kwargs):
         queryset = self.queryset.filter(is_feedback=True)
         recipient = get_object_or_404(models.CustomUser,
@@ -140,11 +148,11 @@ class MessagesViewSet(viewsets.GenericViewSet):
                                                    })
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response("success")
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=serializers.MessageSerializer)
     @action(detail=True, name="send", methods=("post",),
-            url_path="send_feedback")
+            url_path="send-feedback")
     def send_feedback(self, request, *args, **kwargs):
         recipient = get_object_or_404(models.CustomUser,
                                       pk=kwargs.get(self.lookup_field))

@@ -103,11 +103,10 @@ class NotarySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UsersListSerializer(serializers.ModelSerializer):
+class UsersListSerializer(UserShortSerializer):
 
-    class Meta:
-        model = models.CustomUser
-        fields = ("first_name", "is_developer", "is_blacklisted",
+    class Meta(UserShortSerializer.Meta):
+        fields = ("id", "first_name", "is_developer", "is_blacklisted",
                   "phone", "email", "avatar",)
         read_only_fields = ("first_name", "is_developer", "is_blacklisted",
                             "phone", "email", "avatar",)
@@ -140,12 +139,12 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class MessageListSerializer(MessageSerializer):
-    sender = UserShortSerializer()
-    recipient = UserShortSerializer()
+    # sender = UserShortSerializer()
+    # recipient = UserShortSerializer()
 
     class Meta(MessageSerializer.Meta):
-        fields = ("sender", "recipient", "text", "file", "created")
-        read_only_fields = ("created", )
+        fields = ("sender", "text", "file", "created")
+        read_only_fields = ("sender", "text", "file", "created")
 
 
 class FilterSerializer(serializers.ModelSerializer):
@@ -174,7 +173,9 @@ class FilterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         requests_user = self.context.get('request').user
-        name = validated_data.get("apartment_type")
+        name = validated_data.pop("name")
+        if not name:
+            name = validated_data.get("apartment_type")
         if models.Filter.objects.filter(user=requests_user).count() >= 4:
             raise serializers.ValidationError(
                 {
