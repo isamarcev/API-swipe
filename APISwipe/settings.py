@@ -117,8 +117,8 @@ REST_AUTH_REGISTER_SERIALIZERS = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Your Project API',
-    'DESCRIPTION': 'Your project description',
+    'TITLE': 'API SWIPE',
+    'DESCRIPTION': 'API for estate',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     # OTHER SETTINGS
