@@ -17,3 +17,6 @@ startapp:
 	python manage.py migrate --no-input
 	python manage.py collectstatic --no-input
 	gunicorn APISwipe.wsgi:application --bind 0.0.0.0:8000
+	python manage.py create_user
+	python manage.py create_developers
+	python manage.py create_ad
