@@ -141,7 +141,8 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
         'create': [
             Rule([IsAuthenticated])
         ],
-        ('update', 'partial_update', 'destroy'): [
+        ('update', 'partial_update', 'destroy',
+         "flat-list-for-user", "flat-for-user"): [
             Rule([IsAdminUser]),
             Rule([IsApartmentOwner])
         ],
@@ -179,11 +180,8 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         apartment = self.get_object()
-        print(apartment)
         if apartment and apartment.owner == request.user:
             serializer = self.serializer_class(apartment, data=request.data)
-            print(request.data)
-            print(serializer.is_valid())
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK )
@@ -210,7 +208,14 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
         )
         return Response(serializer.data)
 
-
+    @action(detail=False, name="flat-list-for-user", methods=["get"],
+            url_path="my-apartment-list")
+    def flats_list(self, request):
+        apartments = models.Apartment.objects.filter(owner=request.user)
+        serializer = serializers.ApartmentRestrictedSerializer(
+            apartments, many=True
+        )
+        return Response(serializer.data)
 
 
 @extend_schema(tags=["booking"])

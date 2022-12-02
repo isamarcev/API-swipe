@@ -11,3 +11,9 @@ beat:
 	celery -A APISwipe beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
 celery:
 	celery -A APISwipe worker -l info
+celery-beat:
+	celery -A APISwipe worker -l INFO && celery -A APISwipe beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+startapp:
+	python manage.py migrate --no-input
+	python manage.py collectstatic --no-input
+	gunicorn APISwipe.wsgi:application --bind 0.0.0.0:8000
