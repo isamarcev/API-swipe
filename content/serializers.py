@@ -168,7 +168,8 @@ class AdvertisementSerializer(serializers.ModelSerializer):
 
 
 class ApartmentSerializer(serializers.ModelSerializer):
-    apartment_images = ApartmentImageSerializer(many=True, required=False)
+    apartment_images = ApartmentImageSerializer(many=True, required=False,
+                                                allow_null=True)
     complex = serializers.PrimaryKeyRelatedField(
         queryset=models.Complex.objects.all())
 
@@ -209,12 +210,13 @@ class ApartmentSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         try:
             apartment_images = validated_data.pop('apartment_images')
-            image_serializer = ApartmentImageSerializer(
-                data=apartment_images,
-                context={'apartment': instance},
-                many=True)
-            image_serializer.is_valid(raise_exception=True)
-            image_serializer.save()
+            if apartment_images:
+                image_serializer = ApartmentImageSerializer(
+                    data=apartment_images,
+                    context={'apartment': instance},
+                    many=True)
+                image_serializer.is_valid(raise_exception=True)
+                image_serializer.save()
         except KeyError:
             pass
         return super(ApartmentSerializer, self).update(instance, validated_data)

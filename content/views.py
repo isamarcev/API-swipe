@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from drf_psq import Rule, PsqMixin
 
 from django.db.models import Q
@@ -138,7 +139,6 @@ class ApartmentViewSet(viewsets.ModelViewSet):
             Rule([IsAuthenticated]),
         ],
         'create': [
-            Rule([IsAdminUser]),
             Rule([IsAuthenticated])
         ],
         ('update', 'partial_update', 'destroy'): [
@@ -146,6 +146,14 @@ class ApartmentViewSet(viewsets.ModelViewSet):
             Rule([IsApartmentOwner])
         ],
     }
+
+    def get_queryset(self):
+        if self.action == 'update':
+            print(self.action)
+            return models.Apartment.objects.all()\
+                .prefetch_related('apartment_images', 'apartment_ad',).\
+                select_related('owner')
+        return super(ApartmentViewSet, self).get_queryset()
 
     def list(self, request, *args, **kwargs):
         serializer = serializers.ApartmentRestrictedSerializer(self.queryset,
@@ -168,6 +176,18 @@ class ApartmentViewSet(viewsets.ModelViewSet):
         else:
             serializer = serializers.ApartmentOwnerSerializer(apartment_obj)
         return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        apartment = self.get_object()
+        print(apartment)
+        if apartment and apartment.owner == request.user:
+            serializer = self.serializer_class(apartment, data=request.data)
+            print(request.data)
+            print(serializer.is_valid())
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK )
+        return Response(status=status.HTTP_403_FORBIDDEN)
 
     @extend_schema(tags=["favourites"],
                    request=serializers.serializers.Serializer)

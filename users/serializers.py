@@ -106,7 +106,7 @@ class NotarySerializer(serializers.ModelSerializer):
 class UsersListSerializer(UserShortSerializer):
 
     class Meta(UserShortSerializer.Meta):
-        fields = ("first_name", "is_developer", "is_blacklisted",
+        fields = ("id", "first_name", "is_developer", "is_blacklisted",
                   "phone", "email", "avatar",)
         read_only_fields = ("first_name", "is_developer", "is_blacklisted",
                             "phone", "email", "avatar",)
