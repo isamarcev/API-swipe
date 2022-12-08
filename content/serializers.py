@@ -226,9 +226,9 @@ class UserShortSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ("id", "first_name", "last_name", "is_developer", "avatar")
+        fields = ("id", "first_name", "last_name", "is_developer", "avatar", "email")
         read_only_fields = ("id", "avatar", "first_name",
-                            "last_name", "is_developer")
+                            "last_name", "is_developer", "email")
 
 
 class ApartmentDetailSerializer(serializers.ModelSerializer):

@@ -1,11 +1,13 @@
 from allauth.account.utils import setup_user_email
 from django.utils import timezone
+from django.db.utils import IntegrityError
 from datetime import timedelta
 from rest_framework import serializers
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import LoginSerializer
 from phonenumber_field.serializerfields import PhoneNumberField
 from users import models
+from phonenumber_field.validators import validate_international_phonenumber
 
 from content.serializers import ComplexContactSerializer, UserShortSerializer
 
@@ -28,6 +30,22 @@ class AuthRegisterSerializer(RegisterSerializer):
         required=True
     )
     is_developer = serializers.BooleanField(default=False)
+
+    def validate_email(self, email):
+        users = models.CustomUser.objects.filter(email=email).exists()
+        if users:
+            raise serializers.ValidationError(
+                'Пользователь с таким E-Mail уже зарегестрирован.'
+            )
+        return email
+
+    def validate_phone(self, phone):
+        users = models.CustomUser.objects.filter(phone=phone).exists()
+        if users:
+            raise serializers.ValidationError(
+                'Пользователь с таким телефоном уже зарегестрирован.'
+            )
+        return phone
 
     def get_cleaned_data(self):
         return {
