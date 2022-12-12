@@ -192,14 +192,14 @@ class Apartment(models.Model):
     rooms = models.PositiveIntegerField()
     PLAN = (
         ('Студия, санузел', 'Студия, санузел'),
-        ('Обынчая', 'Обычная')
+        ('Обычная', 'Обычная')
     )
     plan = models.CharField(max_length=30,
                             choices=PLAN)
     CONDITION = (
         ('Требуется ремонт', 'Требуется ремонт'),
         ('Жилое', 'Жилое'),
-        ('Голые стена', 'Голые стены')
+        ('Голые стены', 'Голые стены')
     )
     condition = models.CharField(max_length=30,
                                  choices=CONDITION)

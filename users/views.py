@@ -76,7 +76,7 @@ class UserViewSet(PsqMixin,
         user.save()
         return Response('Пользователь уделен из черного списка')
 
-    @action(detail=False, methods=["put"], name="update_profile",
+    @action(detail=False, methods=["put", "patch"], name="update_profile",
             url_path="update-profile")
     def update_profile(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -86,6 +86,15 @@ class UserViewSet(PsqMixin,
                                                 partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], name="my_profile",
+            url_path="my-profile")
+    def my_profile(self, request, *args, **kwargs):
+        instance = request.user
+        serializer = serializers.UserShortSerializer(instance)
+        # serializer.is_valid(raise_exception=True)
+        # self.perform_update(serializer)
         return Response(serializer.data)
 
 
