@@ -271,7 +271,7 @@ class ApartmentRestrictedSerializer(ApartmentSerializer):
     apartment_ad = AdvertisementSerializer()
 
     class Meta(ApartmentSerializer.Meta):
-        fields = ("id", "address", "area", "price", "created_date",
+        fields = ("id", "complex", "address", "area", "price", "created_date",
                   "apartment_ad", "floor", "apartment_images", "is_moderated",
                   "moderation_status", "moderation_decide")
 
