@@ -163,7 +163,7 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         serializer = serializers.MyApartmentsSerializer(self.queryset,
-                                                               many=True)
+                                                        many=True)
         return Response(serializer.data)
 
     @extend_schema(request=serializers.ApartmentSerializer,
