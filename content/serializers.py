@@ -176,7 +176,7 @@ class ApartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Apartment
         fields = ["id", "owner", "number", "corpus", "section", "floor",
-                  "rises", 'address', 'complex', 'foundation', 'purpose',
+                  "rises", 'address', 'map_lat', 'map_long', 'complex', 'foundation', 'purpose',
                   'rooms', 'plan', 'condition', 'area', 'kitchenArea',
                   "has_balcony", "heating", "payment_options", "comission",
                   "communication_type", "description", "price", "schema",
