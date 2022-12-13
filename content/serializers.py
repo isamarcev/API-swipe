@@ -272,7 +272,36 @@ class ApartmentRestrictedSerializer(ApartmentSerializer):
 
     class Meta(ApartmentSerializer.Meta):
         fields = ("id", "address", "area", "price", "created_date",
-                  "apartment_ad", "floor", "apartment_images")
+                  "apartment_ad", "floor", "apartment_images", "is_moderated",
+                  "moderation_status", "moderation_decide")
+
+
+    class Meta:
+        model = models.Apartment
+        fields = ["id", "owner", "number", "corpus", "section", "floor",
+                  "rises", 'address', 'complex', 'foundation', 'purpose',
+                  'rooms', 'plan', 'condition', 'area', 'kitchenArea',
+                  "has_balcony", "heating", "payment_options", "comission",
+                  "communication_type", "description", "price", "schema",
+                  "apartment_images", "price_per_square_meter",
+                  "created_date"]
+        read_only_fields = ["price_per_square_meter", "is_viewed", "owner",
+                            "created_date"]
+
+
+class MyApartmentsSerializer(ApartmentSerializer):
+    complex = ComplexRestrictedSerializer()
+
+    class Meta(ApartmentSerializer.Meta):
+        fields = ("id", "number", "corpus", "section", "floor",
+                  "rises", 'address', "map_lat", "map_long", 'complex', 'foundation', 'purpose',
+                  'rooms', 'plan', 'condition', 'area', 'kitchenArea',
+                  "has_balcony", "heating", "payment_options", "comission",
+                  "communication_type", "description", "price",
+                  "apartment_images", "price_per_square_meter",
+                  "created_date", "is_moderated",
+                  "moderation_status", "moderation_decide")
+        read_only_fields = ["price_per_square_meter", "owner", "created_date"]
 
 
 class ComplaintSerializer(serializers.ModelSerializer):

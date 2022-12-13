@@ -177,6 +177,10 @@ class Apartment(models.Model):
     rises = models.PositiveIntegerField(null=True, blank=True)
     description = models.CharField(max_length=500, null=True, blank=True)
     address = models.CharField(max_length=100, null=True, blank=True)
+    map_lat = models.DecimalField(decimal_places=8, max_digits=10,
+                                  null=True, blank=True)
+    map_long = models.DecimalField(decimal_places=8, max_digits=10,
+                                   null=True, blank=True)
     FOUNDATION = (
         ('Фз 2014', 'Фз 2014'),
         ('Случайная', 'Случайная')

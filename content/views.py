@@ -155,11 +155,11 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        if self.action == 'update' or self.action == 'destroy':
+        if self.action == 'update' or self.action == 'destroy' or self.action == "partial_update":
             return models.Apartment.objects.all()\
                 .prefetch_related('apartment_images', 'apartment_ad',).\
                 select_related('owner')
-        return super(ApartmentViewSet, self).get_queryset()
+        return self.queryset
 
     def list(self, request, *args, **kwargs):
         serializer = serializers.ApartmentRestrictedSerializer(self.queryset,
@@ -224,12 +224,12 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @extend_schema(responses={200: OpenApiResponse(
-        response=serializers.ApartmentRestrictedSerializer)})
+        response=serializers.MyApartmentsSerializer)})
     @action(detail=False, name="flat-list-for-user", methods=["get"],
             url_path="my-apartment-list")
     def flats_list(self, request):
         apartments = models.Apartment.objects.filter(owner=request.user)
-        serializer = serializers.ApartmentRestrictedSerializer(
+        serializer = serializers.MyApartmentsSerializer(
             apartments, many=True
         )
         return Response(serializer.data)
