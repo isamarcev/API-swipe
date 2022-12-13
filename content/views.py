@@ -162,7 +162,7 @@ class ApartmentViewSet(PsqMixin, viewsets.ModelViewSet):
         return self.queryset
 
     def list(self, request, *args, **kwargs):
-        serializer = serializers.ApartmentRestrictedSerializer(self.queryset,
+        serializer = serializers.MyApartmentsSerializer(self.queryset,
                                                                many=True)
         return Response(serializer.data)
 
